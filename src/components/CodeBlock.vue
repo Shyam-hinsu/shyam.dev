@@ -97,7 +97,7 @@ const html = computed(() => {
 .code__pre:focus-visible {
   outline-offset: -2px;
 }
-.code :deep(.tk-c) { color: #6f6d68; font-style: italic; }
+.code :deep(.tk-c) { color: #8e8b85; font-style: italic; }
 .code :deep(.tk-s) { color: #e9b872; }
 .code :deep(.tk-n) { color: #f0a4ab; }
 .code :deep(.tk-k) { color: #ff7a85; }

@@ -1,75 +1,94 @@
 import { clamp } from './easing.js'
 
 /**
- * Registry of sections and elements the agents can work on.
+ * Registry of sections, frames and layers the agents can work on.
  *
  * Markup contract:
- *   <section data-agent-section="projects">
- *     <article data-agent-element data-agent-handle="se">…</article>
+ *   <section data-agent-section="projects">            section
+ *     <article data-agent-element data-agent-handle="se">  frame (dragged open)
+ *       <h3>…</h3> <p>…</p> <li class="tag">…</li>      layers (auto-discovered, tapped in)
+ *     </article>
  *   </section>
+ *   data-agent-atomic on a frame: treat it as one dragged block, never descend.
  *
- * Elements are revealed by animating `clip-path: inset(...)` from the handle's
- * opposite corner, so text and images are never distorted — the box is simply
- * "dragged open". Layout is untouched at all times.
+ * Frames are revealed with clip-path (dragged open from the handle's opposite
+ * corner); layers fade in. Layout is never touched, nothing is distorted.
  */
 export class DOMInspector {
   constructor(config) {
     this.config = config
-    this.items = new Map() // el -> item state
-    this.sections = new Map() // id -> section state
+    this.items = new Map() // el -> item
+    this.sections = new Map() // id -> section
     this.dirty = true
     this.viewport = { w: 0, h: 0 }
+    this.finaleEl = null
   }
 
-  /** Scan the document for sections/elements; safe to call repeatedly. */
   scan(root = document) {
     const seen = new Set()
     root.querySelectorAll('[data-agent-section]').forEach((el) => {
       const id = el.dataset.agentSection
       let sec = this.sections.get(id)
       if (!sec) {
-        sec = { id, el, status: 'idle', items: [], startedAt: 0, visible: false }
+        sec = { id, el, status: 'idle', items: [], visible: false, rect: null, order: this.sections.size }
         this.sections.set(id, sec)
-      } else {
-        sec.el = el
-      }
-      el.querySelectorAll('[data-agent-element]').forEach((node) => {
-        if (node.closest('dialog')) return
-        seen.add(node)
-        if (!this.items.has(node)) this.register(node, sec)
+      } else sec.el = el
+      // The agents own every reveal inside a section.
+      el.querySelectorAll('.reveal').forEach((r) => {
+        r.classList.remove('reveal')
+        r.classList.add('is-visible')
       })
+      this.walk(el, sec, seen)
     })
-    // Drop elements that left the DOM (filtered lists, re-rendered components).
+    this.finaleEl = root.querySelector('[data-agent-finale]')
     for (const [el, item] of this.items) {
       if (!seen.has(el) || !el.isConnected) {
         this.items.delete(el)
-        const idx = item.section.items.indexOf(item)
-        if (idx >= 0) item.section.items.splice(idx, 1)
+        const i = item.section.items.indexOf(item)
+        if (i >= 0) item.section.items.splice(i, 1)
       }
     }
     this.dirty = true
   }
 
-  register(el, section) {
-    const handle = el.dataset.agentHandle || 'se'
-    const p0 = section.id === 'hero' ? this.config.revealStart.hero : this.config.revealStart.default
+  walk(node, sec, seen, insideFrame = null) {
+    for (const el of node.children) {
+      if (el.tagName === 'DIALOG' || el.hidden || el.classList.contains('sr-only') || el.getAttribute('aria-hidden') === 'true') continue
+      if (el.hasAttribute('data-agent-element')) {
+        const atomic = el.hasAttribute('data-agent-atomic')
+        seen.add(el)
+        if (!this.items.has(el)) this.register(el, sec, atomic ? 'atomic' : 'frame')
+        if (!atomic) this.walk(el, sec, seen, el)
+        continue
+      }
+      if (el.matches(this.config.layerSelector) && !el.querySelector('[data-agent-element]')) {
+        seen.add(el)
+        if (!this.items.has(el)) this.register(el, sec, el.matches('img, picture, canvas, .diagram, pre, blockquote') ? 'media' : 'layer')
+        continue
+      }
+      this.walk(el, sec, seen, insideFrame)
+    }
+  }
+
+  register(el, section, kind) {
+    const handle = el.dataset.agentHandle || (kind === 'layer' ? 'e' : 'se')
     const item = {
       el,
       section,
+      kind, // frame | atomic | media | layer
       handle,
-      status: 'collapsed', // collapsed | queued | hover | dragging | built
-      progress: p0,
-      p0,
-      alpha: 1, // selection overlay alpha
+      status: 'collapsed', // collapsed | queued | hover | dragging | popping | built
+      progress: kind === 'layer' ? 0 : this.config.revealStart,
+      p0: kind === 'layer' ? 0 : this.config.revealStart,
+      alpha: 1,
       rect: null,
       queuedAt: 0,
       builtAt: 0,
       hovered: false,
+      popStart: 0,
+      cross: Math.random() < 0.18, // some layers get a "+" crosshair marker
     }
-    // Hand reveal responsibility over from the scroll-reveal system.
-    el.classList.remove('reveal')
-    el.classList.add('agent-el', 'is-visible')
-    // Elements added after their section finished are shown immediately.
+    el.classList.add('agent-el')
     if (section.status === 'done') {
       item.progress = 1
       item.status = 'built'
@@ -81,7 +100,6 @@ export class DOMInspector {
     return item
   }
 
-  /** Reset every element of a section to its collapsed state. */
   collapseSection(section) {
     for (const item of section.items) {
       item.status = 'collapsed'
@@ -94,7 +112,6 @@ export class DOMInspector {
     this.dirty = true
   }
 
-  /** Instantly finish an element (no animation). */
   build(item, now = performance.now()) {
     item.status = 'built'
     item.progress = 1
@@ -111,25 +128,34 @@ export class DOMInspector {
     for (const sec of this.sections.values()) sec.status = 'done'
   }
 
-  /** Apply the reveal state to the DOM. Called only when progress changes. */
+  /** Start a layer's fade-in; the agent loop finishes it. */
+  pop(item, now) {
+    item.status = 'popping'
+    item.popStart = now
+    item.el.style.transition = `opacity ${this.config.popMs}ms ease-out`
+    item.el.style.opacity = '1'
+  }
+
   applyReveal(item) {
-    const { el, handle } = item
+    const { el, handle, kind } = item
     const p = clamp(item.progress, 0, 1)
     if (p >= 1) {
       el.style.clipPath = ''
       el.style.opacity = ''
       el.style.willChange = ''
+      el.style.transition = ''
       el.classList.remove('agent-el--building')
       return
     }
-    const r = (1 - p) * 100
-    const right = handle.includes('e') ? r : 0
-    const bottom = handle.includes('s') ? r : 0
-    const left = handle.includes('w') ? r : 0
-    const top = handle.includes('n') ? r : 0
-    el.style.clipPath = `inset(${top}% ${right}% ${bottom}% ${left}%)`
-    el.style.opacity = String(0.8 + 0.2 * p)
     el.classList.add('agent-el--building')
+    if (kind === 'layer') {
+      el.style.opacity = '0'
+      el.style.clipPath = ''
+      return
+    }
+    const r = (1 - p) * 100
+    el.style.clipPath = `inset(${handle.includes('n') ? r : 0}% ${handle.includes('e') ? r : 0}% ${handle.includes('s') ? r : 0}% ${handle.includes('w') ? r : 0}%)`
+    el.style.opacity = String(0.85 + 0.15 * p)
   }
 
   setViewport(w, h) {
@@ -138,32 +164,33 @@ export class DOMInspector {
     this.dirty = true
   }
 
-  /** Measure the rects we need this frame. DOM reads happen only here. */
+  /** DOM reads happen only here, and only for what the frame needs. */
   measure(mode) {
     if (!this.dirty) return
-    for (const item of this.items.values()) {
-      const need = mode === 'all' || item.status !== 'built' || item.alpha > 0
-      if (!need) continue
-      const r = item.el.getBoundingClientRect()
-      item.rect = { x: r.left, y: r.top, w: r.width, h: r.height }
+    for (const sec of this.sections.values()) {
+      const r = sec.el.getBoundingClientRect()
+      sec.rect = { x: r.left, y: r.top, w: r.width, h: r.height }
+      const near = r.bottom > -this.viewport.h && r.top < this.viewport.h * 2
+      if (!near && mode !== 'all') continue
+      for (const item of sec.items) {
+        if (mode !== 'all' && item.status === 'built' && item.alpha <= 0) continue
+        const b = item.el.getBoundingClientRect()
+        item.rect = { x: b.left, y: b.top, w: b.width, h: b.height }
+      }
     }
     this.dirty = false
   }
 
-  /** Force a fresh measurement of one element (used while dragging). */
-  measureItem(item) {
-    const r = item.el.getBoundingClientRect()
-    item.rect = { x: r.left, y: r.top, w: r.width, h: r.height }
-    return item.rect
-  }
-
-  /** The currently visible (clipped) box of an element. */
   visualRect(item) {
     const r = item.rect
     if (!r) return null
+    if (item.kind === 'layer') return { ...r }
     const p = clamp(item.progress, 0, 1)
     const h = item.handle
-    let { x, y, w, hgt = r.h } = { x: r.x, y: r.y, w: r.w }
+    let x = r.x
+    let y = r.y
+    let w = r.w
+    let hgt = r.h
     if (h.includes('e')) w = r.w * p
     if (h.includes('w')) {
       w = r.w * p
@@ -177,20 +204,22 @@ export class DOMInspector {
     return { x, y, w, h: hgt }
   }
 
-  /** Where a cursor must grab to drag this element open. */
   handlePoint(item) {
     const v = this.visualRect(item)
     if (!v) return null
+    if (item.kind === 'layer') {
+      // Tap near the left of small layers, the centre of large ones.
+      return { x: v.w > 240 ? v.x + v.w * 0.5 : v.x + Math.min(v.w * 0.5, 18), y: v.y + v.h / 2 }
+    }
     const h = item.handle
-    const x = h.includes('e') ? v.x + v.w : h.includes('w') ? v.x : v.x + v.w / 2
-    const y = h.includes('s') ? v.y + v.h : h.includes('n') ? v.y : v.y + v.h / 2
-    return { x, y }
+    return {
+      x: h.includes('e') ? v.x + v.w : h.includes('w') ? v.x : v.x + v.w / 2,
+      y: h.includes('s') ? v.y + v.h : h.includes('n') ? v.y : v.y + v.h / 2,
+    }
   }
 
-  isInViewport(item, margin = 0) {
-    const r = item.rect
-    if (!r) return false
-    return r.y + r.h > -margin && r.y < this.viewport.h + margin && r.w > 2
+  isInViewport(rect, margin = 0) {
+    return !!rect && rect.y + rect.h > -margin && rect.y < this.viewport.h + margin && rect.w > 1 && rect.h > 1
   }
 
   get total() {

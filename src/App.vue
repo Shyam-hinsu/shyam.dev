@@ -1,4 +1,5 @@
 <script setup>
+import { ref } from 'vue'
 import SiteNav from './components/SiteNav.vue'
 import HeroSection from './components/HeroSection.vue'
 import AboutSection from './components/AboutSection.vue'
@@ -12,6 +13,8 @@ import BeyondSection from './components/BeyondSection.vue'
 import ContactSection from './components/ContactSection.vue'
 import SiteFooter from './components/SiteFooter.vue'
 import AgentOverlay from './components/AgentOverlay.vue'
+
+const overlay = ref(null)
 </script>
 
 <template>
@@ -26,8 +29,8 @@ import AgentOverlay from './components/AgentOverlay.vue'
     <PhilosophySection />
     <AchievementsSection />
     <BeyondSection />
-    <ContactSection />
+    <ContactSection @gather="overlay?.gather()" />
   </main>
   <SiteFooter />
-  <AgentOverlay />
+  <AgentOverlay ref="overlay" />
 </template>

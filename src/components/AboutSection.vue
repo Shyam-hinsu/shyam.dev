@@ -27,7 +27,7 @@ useReveal(root)
         </div>
 
         <aside class="about__aside">
-          <figure class="about__photo reveal" data-agent-element data-agent-handle="se">
+          <figure class="about__photo reveal" data-agent-element data-agent-atomic data-agent-handle="se">
             <img
               src="/images/portrait-square-480.webp"
               srcset="/images/portrait-square-480.webp 480w, /images/portrait-square-900.webp 900w"

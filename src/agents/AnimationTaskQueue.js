@@ -1,7 +1,6 @@
 /**
- * Pending manipulation tasks, distributed to idle agents.
- * Tasks are claimed by the nearest idle cursor so motion looks intentional
- * rather than strictly round-robin.
+ * Pending build tasks, claimed by the nearest idle agent. Frames are enqueued
+ * before the layers inside them so a card is dragged open before it is filled.
  */
 export class AnimationTaskQueue {
   constructor() {
@@ -14,17 +13,15 @@ export class AnimationTaskQueue {
     this.pending.push(task)
   }
 
-  /** Claim the best task for an agent at (x, y). */
   claim(agent, inspector) {
     if (!this.pending.length) return null
     let best = -1
     let bestD = Infinity
-    // Look only at the first few tasks so DOM order is broadly preserved.
-    const window = Math.min(this.pending.length, 4)
+    const window = Math.min(this.pending.length, 6)
     for (let i = 0; i < window; i++) {
       const t = this.pending[i]
-      const p = t.item ? inspector.handlePoint(t.item) : null
-      const d = p ? Math.hypot(p.x - agent.x, p.y - agent.y) + i * 80 : i * 80
+      const p = inspector.handlePoint(t.item)
+      const d = (p ? Math.hypot(p.x - agent.x, p.y - agent.y) : 0) + i * 60
       if (d < bestD) {
         bestD = d
         best = i
@@ -43,9 +40,5 @@ export class AnimationTaskQueue {
   cancelAll() {
     this.pending.length = 0
     this.active.clear()
-  }
-
-  hasWork() {
-    return this.pending.length > 0 || this.active.size > 0
   }
 }

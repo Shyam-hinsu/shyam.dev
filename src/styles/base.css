@@ -335,6 +335,7 @@ section {
 
 .agent-el--building {
   transition: none;
+  pointer-events: none;
 }
 
 /* Decorative engineering grid ------------------------------------ */

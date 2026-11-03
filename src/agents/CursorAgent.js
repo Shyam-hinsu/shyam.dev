@@ -1,18 +1,16 @@
 import { clamp, easeInOutCubic, rand } from './easing.js'
 
 /**
- * One simulated cursor. Owns its position, physics, task phase, trail and
- * ripples. `update()` is driven by the shared engine loop — agents never run
- * their own timers or animation frames.
+ * One simulated cursor. Owns position, physics, task phase, trail and ripples.
+ * Driven by the shared engine loop; never runs its own timers.
  */
 export class CursorAgent {
   constructor(def, index, config) {
-    this.id = def.id
-    this.name = def.name
-    this.label = def.label
+    this.id = def.id || `w${index}`
+    this.name = def.name || 'Worker'
+    this.label = def.label || ''
     this.color = def.color
-    this.speed = def.speed
-    this.home = def.home
+    this.speed = def.speed || rand(0.85, 1.3)
     this.index = index
     this.config = config
 
@@ -20,25 +18,26 @@ export class CursorAgent {
     this.y = 0
     this.tx = 0
     this.ty = 0
+    this.vx = 0
+    this.vy = 0
     this.pressed = false
     this.hovering = false
     this.task = null
-    this.phase = 'idle'
+    this.phase = 'idle' // idle | approach | hover | press | drag | pop | release | orbit
     this.phaseStart = 0
     this.dragMs = 0
     this.hoverMs = 0
     this.trail = []
     this.ripples = []
-    this.idleSeed = index * 1.7 + rand(0, 3)
-    this.anchor = { x: 0, y: 0 }
+    this.seed = rand(0, 1000)
+    this.orbitAngle = rand(0, Math.PI * 2)
     this.completed = 0
+    this.flockOffset = { x: rand(-1, 1), y: rand(-1, 1) }
   }
 
-  place(vw, vh) {
-    this.x = this.anchor.x = vw * this.home[0]
-    this.y = this.anchor.y = vh * this.home[1]
-    this.tx = this.x
-    this.ty = this.y
+  place(x, y) {
+    this.x = this.tx = x
+    this.y = this.ty = y
   }
 
   get busy() {
@@ -55,7 +54,6 @@ export class CursorAgent {
     task.item.queuedAt = now
   }
 
-  /** Move towards (tx, ty): exponential approach with a speed cap. */
   moveTowards(dt, rate, maxSpeed) {
     const dx = this.tx - this.x
     const dy = this.ty - this.y
@@ -68,50 +66,93 @@ export class CursorAgent {
     let step = dist * (1 - Math.exp(-dt * rate * this.speed))
     const cap = maxSpeed * this.speed * dt
     if (step > cap) step = cap
-    if (step < 0.2 && dist < 1.5) step = dist
+    if (dist < 1.5) step = dist
     this.x += (dx / dist) * step
     this.y += (dy / dist) * step
     return dist - step
   }
 
-  idle(now, dt, vw, vh) {
+  /** Boids-style idle flocking around the swarm target. */
+  flock(now, dt, env) {
     const c = this.config
     const t = now / 1000
-    const s = this.idleSeed
-    // Slow Lissajous wander around the anchor point; keep inside the viewport.
-    this.tx = clamp(this.anchor.x + Math.sin(t * c.idleRate * 2 * Math.PI + s) * c.idleDrift * 2, 24, vw - 24)
-    this.ty = clamp(this.anchor.y + Math.cos(t * c.idleRate * 1.37 * Math.PI + s * 1.3) * c.idleDrift, 24, vh - 24)
-    this.moveTowards(dt, 1.2, 60)
+    const target = env.swarmTarget
+    const r = c.flockRadius * (env.isMobile ? 0.6 : 1)
+    // Loose cloud around the target plus slow wander.
+    const gx = target.x + this.flockOffset.x * r + Math.sin(t * 0.7 + this.seed) * 18
+    const gy = target.y + this.flockOffset.y * r * 0.7 + Math.cos(t * 0.9 + this.seed * 1.3) * 14
+    let ax = (gx - this.x) * 3.2
+    let ay = (gy - this.y) * 3.2
+    // Separation from neighbours.
+    const sep = c.flockSeparation
+    for (const o of env.agents) {
+      if (o === this) continue
+      const dx = this.x - o.x
+      const dy = this.y - o.y
+      const d2 = dx * dx + dy * dy
+      if (d2 < sep * sep && d2 > 0.01) {
+        const d = Math.sqrt(d2)
+        const f = ((sep - d) / sep) * 420
+        ax += (dx / d) * f
+        ay += (dy / d) * f
+      }
+    }
+    this.vx = (this.vx + ax * dt) * Math.exp(-dt * 3.4)
+    this.vy = (this.vy + ay * dt) * Math.exp(-dt * 3.4)
+    const vmax = 520 * this.speed
+    const v = Math.hypot(this.vx, this.vy)
+    if (v > vmax) {
+      this.vx *= vmax / v
+      this.vy *= vmax / v
+    }
+    this.x = clamp(this.x + this.vx * dt, 8, env.vw - 8)
+    this.y = clamp(this.y + this.vy * dt, 8, env.vh - 8)
+  }
+
+  /** Finale: circle around a point. */
+  orbit(now, dt, env) {
+    const o = env.orbit
+    const speed = 0.9 + (this.index % 5) * 0.12
+    this.orbitAngle += dt * speed * (this.index % 2 ? 1 : -1) * 0.5 + dt * speed
+    const rr = o.r + Math.sin(now / 400 + this.seed) * 10 + (this.index % 3) * 12
+    this.tx = o.x + Math.cos(this.orbitAngle) * rr
+    this.ty = o.y + Math.sin(this.orbitAngle) * rr * 0.72
+    this.moveTowards(dt, 6, 2400)
   }
 
   update(now, dt, env) {
-    const { inspector, queue, vw, vh } = env
+    const { inspector, queue } = env
     const c = this.config
+    const sp = env.speed || 1
+    const sdt = dt * sp
 
-    // Expire ripples
     if (this.ripples.length) this.ripples = this.ripples.filter((r) => now - r.t0 < c.rippleMs)
 
-    if (!this.task) {
+    if (env.mode === 'orbit' && !this.task) {
+      this.orbit(now, sdt, env)
+      this.pushTrail(now)
+      return
+    }
+
+    if (!this.task && !env.frozen) {
       const next = queue.claim(this, inspector)
       if (next) this.assign(next, now)
     }
 
     if (!this.task) {
-      this.idle(now, dt, vw, vh)
+      this.flock(now, sdt, env)
       this.pushTrail(now)
       return
     }
 
     const task = this.task
     const item = task.item
-    const elapsed = now - this.phaseStart
+    const elapsed = (now - this.phaseStart) * sp
 
-    // Element vanished (re-render) — drop the task.
     if (!item.el.isConnected || !item.rect) {
       this.finish(now, queue, task, true)
       return
     }
-
     const hp = inspector.handlePoint(item)
     if (!hp) {
       this.finish(now, queue, task, true)
@@ -122,7 +163,7 @@ export class CursorAgent {
       case 'approach': {
         this.tx = hp.x
         this.ty = hp.y
-        const remaining = this.moveTowards(dt, c.approachRate, c.maxSpeed)
+        const remaining = this.moveTowards(sdt, c.approachRate, c.maxSpeed)
         if (remaining < 1.2 && elapsed > c.approachMinMs) {
           this.phase = 'hover'
           this.phaseStart = now
@@ -140,9 +181,9 @@ export class CursorAgent {
           this.phaseStart = now
           this.pressed = true
           this.hovering = false
-          this.ripples.push({ t0: now, x: this.x, y: this.y, strong: true })
+          this.ripples.push({ t0: now, x: this.x, y: this.y, strong: item.kind !== 'layer' })
           item.status = 'dragging'
-          item.el.style.willChange = 'clip-path, opacity'
+          if (item.kind !== 'layer') item.el.style.willChange = 'clip-path'
         }
         break
       }
@@ -150,7 +191,20 @@ export class CursorAgent {
         this.x = hp.x
         this.y = hp.y
         if (elapsed >= c.pressMs) {
-          this.phase = 'drag'
+          if (item.kind === 'layer') {
+            inspector.pop(item, now)
+            this.phase = 'pop'
+          } else this.phase = 'drag'
+          this.phaseStart = now
+        }
+        break
+      }
+      case 'pop': {
+        // Hold for a beat while the layer fades in, then release.
+        if (elapsed >= c.popMs * 0.6) {
+          this.pressed = false
+          inspector.build(item, now)
+          this.phase = 'release'
           this.phaseStart = now
         }
         break
@@ -183,22 +237,17 @@ export class CursorAgent {
     if (!aborted) this.completed++
     this.pressed = false
     this.hovering = false
-    this.anchor.x = this.x
-    this.anchor.y = this.y
     this.task = null
     this.phase = 'idle'
     this.phaseStart = now
+    this.vx = this.vy = 0
     queue.complete(task)
   }
 
   pushTrail(now) {
     const last = this.trail[this.trail.length - 1]
-    if (!last || Math.hypot(last.x - this.x, last.y - this.y) > 0.6) {
-      this.trail.push({ x: this.x, y: this.y, t: now })
-    }
+    if (!last || Math.hypot(last.x - this.x, last.y - this.y) > 0.6) this.trail.push({ x: this.x, y: this.y, t: now })
     const maxLen = this.config.trailLength
-    while (this.trail.length > maxLen || (this.trail.length && now - this.trail[0].t > this.config.trailLife)) {
-      this.trail.shift()
-    }
+    while (this.trail.length > maxLen || (this.trail.length && now - this.trail[0].t > this.config.trailLife)) this.trail.shift()
   }
 }

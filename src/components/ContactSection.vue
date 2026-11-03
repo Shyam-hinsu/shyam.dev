@@ -5,6 +5,9 @@ import { contact } from '../content/contact.js'
 import { useReveal } from '../composables/useReveal.js'
 import SectionHeading from './SectionHeading.vue'
 import IconGlyph from './IconGlyph.vue'
+import DeployCard from './DeployCard.vue'
+
+const emit = defineEmits(['gather'])
 
 const root = ref(null)
 useReveal(root)
@@ -204,6 +207,10 @@ async function submit() {
           </p>
         </div>
       </div>
+
+      <div class="contact__deploy">
+        <DeployCard @gather="emit('gather')" />
+      </div>
     </div>
   </section>
 </template>
@@ -339,6 +346,10 @@ async function submit() {
 }
 .form__status--err {
   color: var(--accent-hot);
+}
+.contact__deploy {
+  margin-top: var(--s-6);
+  max-width: 28rem;
 }
 .contact__fallback code {
   color: var(--ink-2);

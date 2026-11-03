@@ -40,12 +40,12 @@ useReveal(root)
                 <span v-if="i < item.steps.length - 1" class="case__step-line" aria-hidden="true" />
               </li>
             </ol>
-            <div class="case__aside" data-agent-element data-agent-handle="se">
+            <div class="case__aside" data-agent-element data-agent-atomic data-agent-handle="se">
               <CodeBlock :source="item.code.source" :filename="item.code.filename" />
             </div>
           </div>
 
-          <div v-if="item.hasDemo" class="case__demo" data-agent-element data-agent-handle="se">
+          <div v-if="item.hasDemo" class="case__demo" data-agent-element data-agent-atomic data-agent-handle="se">
             <p class="eyebrow">Live demo</p>
             <TopologyDemo />
           </div>

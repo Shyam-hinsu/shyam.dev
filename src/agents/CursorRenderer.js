@@ -1,8 +1,7 @@
 /**
- * Canvas overlay renderer: cursors, labels, trails, click ripples, selection
- * boxes with eight handles, dimension pills and alignment guides.
- * All drawing happens in viewport coordinates on a device-pixel-ratio aware
- * canvas; nothing here reads the DOM.
+ * Canvas overlay renderer. Draws wireframe skeletons (filled frames, layer
+ * boxes, handles, size pills, crosshairs), cursors, labels, trails and
+ * ripples in viewport coordinates on a DPR-aware canvas. Never reads the DOM.
  */
 export class CursorRenderer {
   constructor(canvas, config) {
@@ -13,6 +12,7 @@ export class CursorRenderer {
     this.vh = 0
     this.dpr = 1
     this.fontMono = '600 10px "JetBrains Mono", ui-monospace, monospace'
+    this.fontSmall = '500 9px "JetBrains Mono", ui-monospace, monospace'
   }
 
   resize(vw, vh) {
@@ -30,29 +30,78 @@ export class CursorRenderer {
     this.ctx.clearRect(0, 0, this.vw, this.vh)
   }
 
-  /** Blue (or red while dragging) selection box with handles and size pill. */
-  drawSelection(rect, { alpha = 1, dragging = false, hovered = false, color } = {}) {
+  /** Skeleton box for an unbuilt layer: filled slate rectangle with placeholder lines. */
+  drawLayerSkeleton(rect, { alpha = 1, hovered = false, pressed = false, cross = false } = {}) {
     if (!rect || rect.w < 2 || rect.h < 2) return
-    if (rect.y + rect.h < 0 || rect.y > this.vh) return
     const ctx = this.ctx
     const c = this.config
-    const stroke = color || (dragging ? c.dragColor : c.selectionColor)
     const x = Math.round(rect.x) + 0.5
     const y = Math.round(rect.y) + 0.5
     const w = Math.round(rect.w)
     const h = Math.round(rect.h)
-
     ctx.save()
     ctx.globalAlpha = alpha
-
-    ctx.fillStyle = dragging ? 'rgba(255, 30, 66, 0.07)' : hovered ? 'rgba(59, 130, 246, 0.09)' : 'rgba(59, 130, 246, 0.05)'
+    ctx.fillStyle = pressed ? 'rgba(147, 197, 253, 0.3)' : hovered ? 'rgba(99, 125, 165, 0.36)' : c.wireFill
     ctx.fillRect(x, y, w, h)
+    ctx.strokeStyle = pressed || hovered ? '#dbeafe' : c.wireStroke
+    ctx.lineWidth = 1
+    ctx.strokeRect(x, y, w, h)
+    // Placeholder "text lines" for taller layers
+    if (h > 34 && w > 60) {
+      ctx.fillStyle = 'rgba(191, 219, 254, 0.18)'
+      const lh = 12
+      const rows = Math.min(6, Math.floor((h - 10) / lh))
+      for (let i = 0; i < rows; i++) {
+        const lw = w * (i === rows - 1 ? 0.55 : 0.9) - 12
+        ctx.fillRect(x + 6, y + 6 + i * lh, Math.max(10, lw), 5)
+      }
+    }
+    // Corner handles for hovered layers
+    if (hovered || pressed) {
+      const hs = 4
+      ctx.fillStyle = '#fff'
+      for (const [hx, hy] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]) ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs)
+      if (w > 120) this.drawPill(`${w} × ${h}`, x, y, w, h, false)
+    }
+    if (cross) this.drawCross(x + w + 10, y - 6)
+    ctx.restore()
+  }
 
+  drawCross(x, y) {
+    const ctx = this.ctx
+    ctx.save()
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(x - 4, y)
+    ctx.lineTo(x + 4, y)
+    ctx.moveTo(x, y - 4)
+    ctx.lineTo(x, y + 4)
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  /** Figma-style frame selection: outline, eight handles, size pill, drag guides. */
+  drawFrame(rect, { alpha = 1, dragging = false, hovered = false, fill = true } = {}) {
+    if (!rect || rect.w < 2 || rect.h < 2) return
+    if (rect.y + rect.h < 0 || rect.y > this.vh) return
+    const ctx = this.ctx
+    const c = this.config
+    const stroke = dragging ? c.dragColor : hovered ? '#bfdbfe' : c.wireStroke
+    const x = Math.round(rect.x) + 0.5
+    const y = Math.round(rect.y) + 0.5
+    const w = Math.round(rect.w)
+    const h = Math.round(rect.h)
+    ctx.save()
+    ctx.globalAlpha = alpha
+    if (fill) {
+      ctx.fillStyle = dragging ? 'rgba(255, 30, 66, 0.06)' : c.wireFillFrame
+      ctx.fillRect(x, y, w, h)
+    }
     ctx.strokeStyle = stroke
     ctx.lineWidth = dragging ? 1.5 : 1
     ctx.strokeRect(x, y, w, h)
-
-    if (dragging) {
+    if (dragging && w > 200) {
       ctx.save()
       ctx.setLineDash([3, 4])
       ctx.strokeStyle = 'rgba(255, 30, 66, 0.35)'
@@ -65,39 +114,36 @@ export class CursorRenderer {
       ctx.stroke()
       ctx.restore()
     }
-
-    // Eight handles
     const hs = c.handleSize
-    const pts = [
+    ctx.fillStyle = '#fff'
+    ctx.strokeStyle = stroke
+    for (const [hx, hy] of [
       [x, y], [x + w / 2, y], [x + w, y],
       [x, y + h / 2], [x + w, y + h / 2],
       [x, y + h], [x + w / 2, y + h], [x + w, y + h],
-    ]
-    ctx.fillStyle = '#ffffff'
-    ctx.strokeStyle = stroke
-    ctx.lineWidth = 1
-    for (const [hx, hy] of pts) {
+    ]) {
       ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs)
       ctx.strokeRect(hx - hs / 2, hy - hs / 2, hs, hs)
     }
+    this.drawPill(`${w} × ${h}`, x, y, w, h, dragging)
+    ctx.restore()
+  }
 
-    // Dimension pill
-    const label = `${w} × ${h}`
+  drawPill(label, x, y, w, h, red) {
+    const ctx = this.ctx
     ctx.font = this.fontMono
     const tw = ctx.measureText(label).width
     const pw = tw + 10
     const ph = 16
     const px = Math.max(4, Math.min(this.vw - pw - 4, x + w - pw))
     const py = y + h + 6 < this.vh - ph ? y + h + 6 : y - ph - 6
-    ctx.fillStyle = dragging ? '#e11d48' : '#2563eb'
+    ctx.fillStyle = red ? '#e11d48' : '#2563eb'
     ctx.beginPath()
     ctx.roundRect(px, py, pw, ph, 3)
     ctx.fill()
-    ctx.fillStyle = '#ffffff'
+    ctx.fillStyle = '#fff'
     ctx.textBaseline = 'middle'
     ctx.fillText(label, px + 5, py + ph / 2 + 0.5)
-
-    ctx.restore()
   }
 
   drawTrail(agent, now) {
@@ -108,13 +154,12 @@ export class CursorRenderer {
     ctx.save()
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
+    ctx.strokeStyle = agent.color
     for (let i = 1; i < t.length; i++) {
-      const age = now - t[i].t
-      const a = Math.max(0, 1 - age / life) * 0.55
+      const a = Math.max(0, 1 - (now - t[i].t) / life) * 0.5
       if (a <= 0.01) continue
-      ctx.strokeStyle = agent.color
       ctx.globalAlpha = a
-      ctx.lineWidth = 1 + (i / t.length) * 1.6
+      ctx.lineWidth = 0.8 + (i / t.length) * 1.4
       ctx.beginPath()
       ctx.moveTo(t[i - 1].x, t[i - 1].y)
       ctx.lineTo(t[i].x, t[i].y)
@@ -131,26 +176,23 @@ export class CursorRenderer {
     for (const r of agent.ripples) {
       const p = (now - r.t0) / ms
       if (p >= 1) continue
-      const radius = (r.strong ? 30 : 18) * p
       ctx.globalAlpha = (1 - p) * (r.strong ? 0.9 : 0.6)
       ctx.strokeStyle = r.strong ? this.config.dragColor : agent.color
-      ctx.lineWidth = r.strong ? 1.8 : 1.2
+      ctx.lineWidth = r.strong ? 1.6 : 1.1
       ctx.beginPath()
-      ctx.arc(r.x, r.y, radius, 0, Math.PI * 2)
+      ctx.arc(r.x, r.y, (r.strong ? 26 : 14) * p, 0, Math.PI * 2)
       ctx.stroke()
     }
     ctx.restore()
   }
 
-  drawCursor(agent) {
+  drawCursor(agent, small = false) {
     const ctx = this.ctx
     const fill = agent.pressed ? this.config.dragColor : agent.color
     ctx.save()
     ctx.translate(agent.x, agent.y)
-    if (agent.pressed) ctx.scale(0.9, 0.9)
-    else if (agent.hovering) ctx.scale(1.06, 1.06)
-
-    // Pointer
+    const s = (small ? 0.72 : 1) * (agent.pressed ? 0.9 : agent.hovering ? 1.06 : 1)
+    ctx.scale(s, s)
     ctx.beginPath()
     ctx.moveTo(0, 0)
     ctx.lineTo(0, 16)
@@ -163,22 +205,20 @@ export class CursorRenderer {
     ctx.fillStyle = fill
     ctx.fill()
     ctx.lineWidth = 1.3
-    ctx.strokeStyle = '#ffffff'
+    ctx.strokeStyle = '#fff'
     ctx.lineJoin = 'round'
     ctx.stroke()
-
-    // Identity label
-    ctx.font = this.fontMono
-    const text = agent.label
-    const tw = ctx.measureText(text).width
-    ctx.fillStyle = fill
-    ctx.beginPath()
-    ctx.roundRect(12, 14, tw + 10, 15, 3.5)
-    ctx.fill()
-    ctx.fillStyle = '#07070a'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(text, 17, 21.5)
-
+    if (agent.label) {
+      ctx.font = this.fontMono
+      const tw = ctx.measureText(agent.label).width
+      ctx.fillStyle = fill
+      ctx.beginPath()
+      ctx.roundRect(12, 14, tw + 10, 15, 3.5)
+      ctx.fill()
+      ctx.fillStyle = '#07070a'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(agent.label, 17, 21.5)
+    }
     ctx.restore()
   }
 }

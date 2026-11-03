@@ -87,7 +87,7 @@ onBeforeUnmount(() => {
         </ul>
       </div>
 
-      <figure ref="frame" class="hero__figure reveal is-visible" style="--reveal-delay: 200ms" data-agent-element data-agent-handle="se">
+      <figure ref="frame" class="hero__figure reveal is-visible" style="--reveal-delay: 200ms" data-agent-element data-agent-atomic data-agent-handle="se">
         <div class="hero__frame">
           <picture>
             <source

@@ -1,45 +1,68 @@
 /**
  * Configuration for the multi-cursor "UI agents" animation system.
- * Five simulated cursors inspect, select and drag-open registered elements
- * as the visitor scrolls. They are purely visual — no network, no AI calls.
+ * A swarm of simulated cursors inspects, wireframes and builds the page as
+ * the visitor scrolls. Purely visual: no network, no AI calls.
  */
-export const AGENT_DEFS = [
-  { id: 'ui', name: 'UI Agent', label: 'UI', color: '#3b82f6', speed: 1.0, home: [0.42, 0.4] },
-  { id: 'dom', name: 'DOM Layout Agent', label: 'DOM', color: '#ef4444', speed: 0.88, home: [0.36, 0.56] },
-  { id: 'gfx', name: 'Graphics Agent', label: 'GFX', color: '#10b981', speed: 1.12, home: [0.52, 0.64] },
-  { id: 'motion', name: 'Motion Agent', label: 'MOTION', color: '#f59e0b', speed: 1.28, home: [0.62, 0.42] },
-  { id: 'state', name: 'State Agent', label: 'STATE', color: '#a855f7', speed: 0.8, home: [0.68, 0.58] },
+
+/** The five named lead agents (labelled pointers). */
+export const LEAD_AGENTS = [
+  { id: 'ui', name: 'UI Agent', label: 'UI_Agent_01', color: '#3b82f6', speed: 1.0 },
+  { id: 'dom', name: 'DOM Layout Agent', label: 'DOM_Layout_02', color: '#ef4444', speed: 0.9 },
+  { id: 'gfx', name: 'Graphics Agent', label: 'Graphics_03', color: '#10b981', speed: 1.12 },
+  { id: 'motion', name: 'Motion Agent', label: 'Motion_04', color: '#f59e0b', speed: 1.25 },
+  { id: 'state', name: 'State Agent', label: 'State_05', color: '#a855f7', speed: 0.85 },
 ]
 
+/** Unlabelled worker cursors cycle through this palette. */
+export const WORKER_COLORS = ['#60a5fa', '#f472b6', '#34d399', '#fbbf24', '#c084fc', '#22d3ee', '#fb7185', '#a3e635', '#e2e8f0']
+
 export const CONFIG = {
-  selectionColor: '#3b82f6',
+  // Swarm size
+  initialAgents: 10,
+  agentsPerSection: 3,
+  maxAgents: 30,
+
+  // Colours
+  wireStroke: 'rgba(147, 197, 253, 0.95)',
+  wireFill: 'rgba(99, 125, 165, 0.22)',
+  wireFillFrame: 'rgba(99, 125, 165, 0.08)',
   dragColor: '#ff1e42',
   handleSize: 5,
 
-  // Cursor physics
-  approachRate: 9, // exponential approach per second (× agent speed)
-  maxSpeed: 2200, // px/s cap (× agent speed)
-  approachMinMs: 160,
-  hoverMs: [90, 180],
-  pressMs: 90,
-  releaseMs: 120,
-  dragMs: [360, 640],
-  idleDrift: 9, // px amplitude of idle wandering
-  idleRate: 0.35, // cycles per second
+  // Cursor physics (durations in ms at 1x speed)
+  approachRate: 10,
+  maxSpeed: 2600,
+  approachMinMs: 110,
+  hoverMs: [50, 120],
+  pressMs: 70,
+  releaseMs: 80,
+  dragMs: [360, 620], // frames, images, atomic blocks
+  popMs: 220, // leaf layers fade in
+  flockSeparation: 26,
+  flockRadius: 140,
 
   // Trails and ripples
-  trailLength: 16,
-  trailLife: 380,
-  trailLengthMobile: 8,
-  rippleMs: 420,
+  trailLength: 12,
+  trailLengthMobile: 6,
+  trailLife: 320,
+  rippleMs: 380,
 
-  // Element reveal
-  revealStart: { hero: 0.55, default: 0.16 },
-  fadeMs: 420,
-  staleTaskMs: 7000, // safety: force-build anything stuck this long
-  offscreenMargin: 1.2, // viewport heights; sections this far away are built instantly
+  // Reveal
+  revealStart: 0.12,
+  fadeMs: 360,
+  staleTaskMs: 6000,
+  offscreenMargin: 0.8,
 
-  sectionThreshold: 0.18,
+  // Choreography
+  introMs: 1700,
+  tourPauseMs: 700,
+  finaleOrbitMs: 5000,
+  sectionThreshold: 0.15,
   mobileBreakpoint: 768,
-  storageKey: 'agents.prefs.v1',
+  storageKey: 'agents.prefs.v2',
+
+  /** Elements that count as individual build layers inside a section. */
+  layerSelector:
+    'h1, h2, h3, h4, p, li, blockquote, img, picture, pre, canvas, dt, dd, label, input, textarea, ' +
+    '.btn, .tag, .eyebrow, .diagram, .projects__filter, .project__meta, .project__cta, .project__badge, .demo__opt',
 }
