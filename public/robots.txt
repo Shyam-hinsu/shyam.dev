@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://shyam-hinsu.github.io/shyam.dev/sitemap.xml

@@ -1,0 +1,8 @@
+{
+  "name": "Shyam Hinsu — Frontend Engineer",
+  "short_name": "Shyam Hinsu",
+  "icons": [{ "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }],
+  "theme_color": "#0b0b0d",
+  "background_color": "#0b0b0d",
+  "display": "browser"
+}

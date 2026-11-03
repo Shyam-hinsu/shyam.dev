@@ -1,0 +1,98 @@
+/* ------------------------------------------------------------------
+   Design tokens — the single source of truth for colour, type, space.
+   ------------------------------------------------------------------ */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg: #0b0b0d;
+  --bg-elev: #111114;
+  --bg-elev-2: #17171b;
+  --bg-elev-3: #1e1e24;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+
+  /* Ink */
+  --ink: #f3f1ec;
+  --ink-2: #c9c6bf;
+  --ink-3: #8e8b85;
+  --ink-4: #5d5b57;
+
+  /* Accent — crimson, echoing the rim light in the portrait */
+  --accent: #d4202c;
+  --accent-hot: #ff5f6a;
+  --accent-deep: #8f1420;
+  --accent-soft: rgba(227, 50, 63, 0.14);
+  --accent-glow: rgba(227, 50, 63, 0.28);
+
+  /* Semantic */
+  --ok: #4ade80;
+  --warn: #fbbf24;
+
+  /* Type */
+  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  --text-xl: clamp(1.75rem, 1.4rem + 1.4vw, 2.5rem);
+  --text-2xl: clamp(2.5rem, 1.9rem + 2.8vw, 4.5rem);
+  --text-3xl: clamp(2.75rem, 1.6rem + 4.4vw, 5.6rem);
+
+  --leading-tight: 1.02;
+  --leading-snug: 1.2;
+  --leading-body: 1.65;
+
+  /* Space (4px base) */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --s-8: 4rem;
+  --s-9: 6rem;
+  --s-10: 8rem;
+
+  --section-y: clamp(4.5rem, 6vw + 2rem, 9rem);
+  --gutter: 1rem;
+  --container: 80rem;
+
+  /* Shape */
+  --r-xs: 2px;
+  --r-sm: 6px;
+  --r-md: 12px;
+  --r-lg: 20px;
+  --r-pill: 999px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 160ms;
+  --dur: 320ms;
+  --dur-slow: 720ms;
+
+  /* Layers */
+  --z-nav: 50;
+  --z-menu: 60;
+  --z-dialog: 70;
+
+  --nav-h: 4rem;
+}
+
+@media (min-width: 48em) {
+  :root {
+    --gutter: 2rem;
+  }
+}
+
+@media (min-width: 64em) {
+  :root {
+    --gutter: 3rem;
+  }
+}

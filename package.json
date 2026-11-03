@@ -1,0 +1,19 @@
+{
+  "name": "shyam-dev",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Personal portfolio of Shyam Hinsu, Frontend Engineer (Vue.js).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173 --strictPort"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.10",
+    "vite": "^7.3.7"
+  },
+  "dependencies": {
+    "vue": "^3.5.44"
+  }
+}
