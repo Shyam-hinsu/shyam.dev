@@ -8,7 +8,7 @@ const emit = defineEmits(['gather'])
 </script>
 
 <template>
-  <button type="button" class="deploy" data-agent-finale data-agent-element data-agent-atomic data-agent-handle="se" @click="emit('gather')">
+  <button type="button" class="deploy" data-agent-finale data-agent-element data-agent-atomic data-agent-handle="se" data-agent-action="pulse" data-agent-hold="360" @click="emit('gather')">
     <span class="deploy__meta mono">
       <span>Production deploy queue</span>
       <span>{{ LEAD_AGENTS.length }} lead agents ready</span>
@@ -45,6 +45,10 @@ const emit = defineEmits(['gather'])
 .deploy:hover {
   transform: translateY(-2px);
   border-color: rgba(255, 95, 106, 0.9);
+}
+.deploy.is-hit {
+  transform: scale(0.98);
+  border-color: #fff;
 }
 .deploy.is-gathered {
   border-color: #fff;

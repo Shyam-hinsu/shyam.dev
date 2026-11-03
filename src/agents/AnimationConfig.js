@@ -33,11 +33,12 @@ export const CONFIG = {
   approachRate: 10,
   maxSpeed: 2600,
   approachMinMs: 110,
-  hoverMs: [50, 120],
-  pressMs: 70,
-  releaseMs: 80,
-  dragMs: [360, 620], // frames, images, atomic blocks
-  popMs: 220, // leaf layers fade in
+  hoverMs: [80, 160],
+  pressMs: 90,
+  releaseMs: 110,
+  dragMs: [480, 820], // frames, images, atomic blocks
+  popMs: 240, // leaf layers pop in
+  interactStaggerMs: 450,
   flockSeparation: 26,
   flockRadius: 140,
 
@@ -48,7 +49,8 @@ export const CONFIG = {
   rippleMs: 380,
 
   // Reveal
-  revealStart: 0.12,
+  revealStart: 0.22,
+  layerStart: 0.72,
   fadeMs: 360,
   staleTaskMs: 6000,
   offscreenMargin: 0.8,

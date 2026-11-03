@@ -255,16 +255,16 @@ const fmt = (v) => (v >= 10 ? v.toFixed(0) : v.toFixed(1))
     <div class="demo__toolbar">
       <div class="demo__group" role="group" aria-label="Simulation thread">
         <span class="demo__label mono">Thread</span>
-        <button type="button" class="demo__opt" :class="{ 'is-active': mode === 'worker' }" :aria-pressed="mode === 'worker'" :disabled="!supportsWorker" @click="mode = 'worker'">
+        <button type="button" class="demo__opt" :class="{ 'is-active': mode === 'worker' }" :aria-pressed="mode === 'worker'" :disabled="!supportsWorker" data-agent-action="click" data-agent-after="2600" @click="mode = 'worker'">
           Web Worker
         </button>
-        <button type="button" class="demo__opt" :class="{ 'is-active': mode === 'main' }" :aria-pressed="mode === 'main'" @click="mode = 'main'">
+        <button type="button" class="demo__opt" :class="{ 'is-active': mode === 'main' }" :aria-pressed="mode === 'main'" data-agent-action="click" @click="mode = 'main'">
           Main thread
         </button>
       </div>
       <div class="demo__group" role="group" aria-label="Node count">
         <span class="demo__label mono">Nodes</span>
-        <button v-for="s in sizes" :key="s" type="button" class="demo__opt" :class="{ 'is-active': nodeCount === s }" :aria-pressed="nodeCount === s" @click="nodeCount = s">
+        <button v-for="s in sizes" :key="s" type="button" class="demo__opt" :class="{ 'is-active': nodeCount === s }" :aria-pressed="nodeCount === s" :data-agent-action="s === 3000 ? 'click' : null" data-agent-after="4600" @click="nodeCount = s">
           {{ s.toLocaleString() }}
         </button>
       </div>

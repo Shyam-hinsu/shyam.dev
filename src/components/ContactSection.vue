@@ -234,7 +234,8 @@ async function submit() {
   border-radius: var(--r-md);
   transition: border-color var(--dur-fast), background-color var(--dur-fast), transform var(--dur) var(--ease-out);
 }
-.channel:hover {
+.channel:hover,
+.channel.is-agent-hover {
   border-color: var(--line-strong);
   background: rgba(255, 255, 255, 0.03);
   transform: translateX(4px);

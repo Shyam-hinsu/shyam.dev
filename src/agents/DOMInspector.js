@@ -14,6 +14,13 @@ import { clamp } from './easing.js'
  * Frames are revealed with clip-path (dragged open from the handle's opposite
  * corner); layers fade in. Layout is never touched, nothing is distorted.
  */
+/** Transform origin (fractions) opposite the drag handle. */
+function originOf(handle) {
+  const ox = handle.includes('e') ? 0 : handle.includes('w') ? 1 : 0.5
+  const oy = handle.includes('s') ? 0 : handle.includes('n') ? 1 : 0.5
+  return [ox, oy]
+}
+
 export class DOMInspector {
   constructor(config) {
     this.config = config
@@ -78,8 +85,10 @@ export class DOMInspector {
       kind, // frame | atomic | media | layer
       handle,
       status: 'collapsed', // collapsed | queued | hover | dragging | popping | built
-      progress: kind === 'layer' ? 0 : this.config.revealStart,
-      p0: kind === 'layer' ? 0 : this.config.revealStart,
+      progress: kind === 'layer' ? this.config.layerStart : this.config.revealStart,
+      p0: kind === 'layer' ? this.config.layerStart : this.config.revealStart,
+      scale: 1,
+      origin: originOf(el.dataset.agentHandle || (kind === 'layer' ? 'e' : 'se')),
       alpha: 1,
       rect: null,
       queuedAt: 0,
@@ -128,34 +137,55 @@ export class DOMInspector {
     for (const sec of this.sections.values()) sec.status = 'done'
   }
 
-  /** Start a layer's fade-in; the agent loop finishes it. */
+  /** Start a layer's pop-in; the agent loop finishes it. */
   pop(item, now) {
     item.status = 'popping'
     item.popStart = now
-    item.el.style.transition = `opacity ${this.config.popMs}ms ease-out`
+    const ms = this.config.popMs
+    item.el.style.transition = `opacity ${ms}ms ease-out, transform ${ms + 60}ms cubic-bezier(0.22, 1, 0.36, 1)`
     item.el.style.opacity = '1'
+    item.el.style.transform = 'scale(1)'
+    item.scale = 1
   }
 
+  /**
+   * Apply the reveal state to the DOM. Frames and media are scaled from the
+   * corner opposite the handle (the cursor "drags" them open); layers start
+   * small and transparent and pop in. Transforms never affect layout.
+   */
   applyReveal(item) {
-    const { el, handle, kind } = item
+    const { el, kind, origin } = item
     const p = clamp(item.progress, 0, 1)
-    if (p >= 1) {
-      el.style.clipPath = ''
+    if (p >= 1 && item.status === 'built') {
+      el.style.transform = ''
+      el.style.transformOrigin = ''
       el.style.opacity = ''
+      el.style.filter = ''
       el.style.willChange = ''
       el.style.transition = ''
+      item.scale = 1
       el.classList.remove('agent-el--building')
       return
     }
     el.classList.add('agent-el--building')
+    el.style.transformOrigin = `${origin[0] * 100}% ${origin[1] * 100}%`
     if (kind === 'layer') {
+      if (item.status === 'popping') return
+      el.style.transition = ''
       el.style.opacity = '0'
-      el.style.clipPath = ''
+      el.style.transform = `scale(${p.toFixed(3)})`
+      item.scale = p
       return
     }
-    const r = (1 - p) * 100
-    el.style.clipPath = `inset(${handle.includes('n') ? r : 0}% ${handle.includes('e') ? r : 0}% ${handle.includes('s') ? r : 0}% ${handle.includes('w') ? r : 0}%)`
-    el.style.opacity = String(0.85 + 0.15 * p)
+    el.style.transform = `scale(${p.toFixed(3)})`
+    item.scale = p
+    if (item.status === 'dragging') {
+      el.style.opacity = String((0.35 + 0.65 * p).toFixed(3))
+      el.style.filter = 'contrast(112%)'
+    } else {
+      el.style.opacity = '0.22'
+      el.style.filter = 'grayscale(90%) contrast(140%)'
+    }
   }
 
   setViewport(w, h) {
@@ -174,34 +204,27 @@ export class DOMInspector {
       if (!near && mode !== 'all') continue
       for (const item of sec.items) {
         if (mode !== 'all' && item.status === 'built' && item.alpha <= 0) continue
+        if (item.status === 'popping') continue // mid-transition: keep the base rect
         const b = item.el.getBoundingClientRect()
-        item.rect = { x: b.left, y: b.top, w: b.width, h: b.height }
+        // Un-scale to the element's natural box so overlays and handles are stable.
+        const s = item.scale || 1
+        const w = b.width / s
+        const h = b.height / s
+        item.rect = { x: b.left - item.origin[0] * (w - b.width), y: b.top - item.origin[1] * (h - b.height), w, h }
       }
     }
     this.dirty = false
   }
 
+  /** The box the element currently occupies on screen (base rect × scale). */
   visualRect(item) {
     const r = item.rect
     if (!r) return null
     if (item.kind === 'layer') return { ...r }
-    const p = clamp(item.progress, 0, 1)
-    const h = item.handle
-    let x = r.x
-    let y = r.y
-    let w = r.w
-    let hgt = r.h
-    if (h.includes('e')) w = r.w * p
-    if (h.includes('w')) {
-      w = r.w * p
-      x = r.x + r.w - w
-    }
-    if (h.includes('s')) hgt = r.h * p
-    if (h.includes('n')) {
-      hgt = r.h * p
-      y = r.y + r.h - hgt
-    }
-    return { x, y, w, h: hgt }
+    const s = item.status === 'built' ? 1 : item.scale || 1
+    const w = r.w * s
+    const h = r.h * s
+    return { x: r.x + item.origin[0] * (r.w - w), y: r.y + item.origin[1] * (r.h - h), w, h }
   }
 
   handlePoint(item) {

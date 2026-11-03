@@ -11,7 +11,7 @@ defineEmits(['open'])
 
 <template>
   <article class="project" :class="{ 'project--featured': featured }" data-agent-element data-agent-handle="se">
-    <button type="button" class="project__hit" @click="$emit('open', $event)">
+    <button type="button" class="project__hit" :data-agent-action="featured ? 'hover' : null" data-agent-hold="1100" @click="$emit('open', $event)">
       <div class="project__visual">
         <ArchDiagram :kind="project.visual" :title="`${project.title} — architecture diagram`" />
         <span v-if="project.confidential" class="project__badge mono"><IconGlyph name="lock" /> Confidential · anonymised</span>
@@ -46,7 +46,8 @@ defineEmits(['open'])
   overflow: hidden;
   transition: border-color var(--dur) var(--ease-out), transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
 }
-.project__hit:hover {
+.project__hit:hover,
+.project__hit.is-agent-hover {
   border-color: var(--line-strong);
   transform: translateY(-3px);
   box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.8);
@@ -64,7 +65,8 @@ defineEmits(['open'])
 .project__visual :deep(.diagram__svg) {
   transition: transform var(--dur-slow) var(--ease-out);
 }
-.project__hit:hover .project__visual :deep(.diagram__svg) {
+.project__hit:hover .project__visual :deep(.diagram__svg),
+.project__hit.is-agent-hover .project__visual :deep(.diagram__svg) {
   transform: scale(1.02);
 }
 .project__badge {

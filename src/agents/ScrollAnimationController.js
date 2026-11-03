@@ -40,6 +40,7 @@ export class ScrollAnimationController {
     this.startedAt = 0
     this.finishedAt = 0
     this.tourTimer = 0
+    this.timers = new Set()
     this.introUntil = 0
     this.nextSectionAt = 0
 
@@ -99,8 +100,38 @@ export class ScrollAnimationController {
     this.startLoop()
   }
 
+  later(fn, ms) {
+    const id = setTimeout(() => {
+      this.timers.delete(id)
+      fn()
+    }, ms)
+    this.timers.add(id)
+    return id
+  }
+
+  clearTimers() {
+    for (const id of this.timers) clearTimeout(id)
+    this.timers.clear()
+  }
+
+  /** Queue an interaction with a real control on the page. */
+  interact(el, action, { offset, holdMs, sectionId } = {}) {
+    if (!el || !el.isConnected) return
+    const r = el.getBoundingClientRect()
+    this.queue.enqueue({
+      kind: 'interact',
+      el,
+      action,
+      offset,
+      holdMs: holdMs ?? (action === 'hover' ? 900 : 320),
+      sectionId: sectionId || '',
+      rect: { x: r.left, y: r.top, w: r.width, h: r.height },
+    })
+  }
+
   destroy() {
     this.stopLoop()
+    this.clearTimers()
     clearTimeout(this.tourTimer)
     clearTimeout(this.rescanTimer)
     this.observer?.disconnect()
@@ -160,6 +191,13 @@ export class ScrollAnimationController {
     this.state.elapsedMs = 0
     this.introUntil = now + this.config.introMs
     this.swarmTarget = { x: this.vw / 2, y: this.vh / 2 }
+    // The leads lock onto the monogram's corners and click it, as in the reference intro.
+    this.later(() => {
+      const mark = document.querySelector('.splash__mark')
+      if (!mark) return
+      const corners = [[0, 0], [0, 1], [0.5, 1], [1, 0], [1, 1]]
+      corners.forEach((offset, i) => this.interact(mark, i === 0 ? 'pulse' : 'hover', { offset, holdMs: 260, sectionId: 'intro' }))
+    }, 450)
   }
 
   endIntro() {
@@ -190,6 +228,7 @@ export class ScrollAnimationController {
       item.status = 'queued'
       item.queuedAt = performance.now()
       this.queue.enqueue({
+        kind: 'build',
         item,
         sectionId: sec.id,
         onDone: () => {
@@ -201,8 +240,10 @@ export class ScrollAnimationController {
   }
 
   sectionDone(sec) {
+    if (sec.status === 'done') return
     sec.status = 'done'
     this.state.built = this.inspector.builtCount
+    this.scheduleInteractions(sec)
     const all = [...this.inspector.sections.values()].every((s) => s.status === 'done')
     if (all && this.state.phase !== 'done') {
       this.finishedAt = performance.now()
@@ -212,6 +253,18 @@ export class ScrollAnimationController {
       return
     }
     if (this.state.tour) this.scheduleTourStep()
+  }
+
+  /** After a section is built, agents try its real controls ([data-agent-action]). */
+  scheduleInteractions(sec) {
+    const controls = [...sec.el.querySelectorAll('[data-agent-action]')]
+    controls.forEach((el, i) => {
+      const after = Number(el.dataset.agentAfter || 0) + i * this.config.interactStaggerMs
+      this.later(() => {
+        if (!this.state.enabled || this.state.paused) return
+        this.interact(el, el.dataset.agentAction, { holdMs: el.dataset.agentHold ? Number(el.dataset.agentHold) : undefined, sectionId: sec.id })
+      }, after / (this.state.speed || 1))
+    })
   }
 
   /** Tour: once a section is built, glide to the next one. */
@@ -275,6 +328,7 @@ export class ScrollAnimationController {
 
   replayAll() {
     clearTimeout(this.tourTimer)
+    this.clearTimers()
     this.queue.cancelAll()
     for (const a of this.agents) a.task && a.finish(performance.now(), this.queue, a.task, true)
     for (const sec of this.inspector.sections.values()) this.inspector.collapseSection(sec)
@@ -340,6 +394,7 @@ export class ScrollAnimationController {
     if (!on) {
       this.stopLoop()
       clearTimeout(this.tourTimer)
+      this.clearTimers()
       this.queue.cancelAll()
       for (const a of this.agents) a.task && a.finish(performance.now(), this.queue, a.task, true)
       this.inspector.buildAll()
@@ -393,7 +448,6 @@ export class ScrollAnimationController {
       swarmTarget: this.swarmTarget,
       orbit: this.orbit,
       mode: st.phase === 'finale' ? 'orbit' : 'work',
-      frozen: st.phase === 'intro',
     }
     for (const a of this.agents) a.update(now, dt, env)
 
@@ -470,6 +524,10 @@ export class ScrollAnimationController {
     if (this.queue.pending.length) {
       const keep = []
       for (const t of this.queue.pending) {
+        if (!t.item) {
+          keep.push(t)
+          continue
+        }
         const sec = t.item.section
         const gone = sec.rect && (sec.rect.y + sec.rect.h < -margin || sec.rect.y > this.vh + margin * 2)
         if ((sec.visible === false && gone) && t.item.status === 'queued') {

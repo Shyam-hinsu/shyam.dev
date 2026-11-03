@@ -168,6 +168,10 @@ const status = computed(() => {
   color: var(--ink);
   line-height: 1;
   text-align: center;
+  transition: transform 260ms var(--ease-out);
+}
+.splash__mark.is-hit {
+  transform: scale(1.18);
 }
 .splash__mark i {
   color: var(--accent);

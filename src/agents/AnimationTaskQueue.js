@@ -20,7 +20,7 @@ export class AnimationTaskQueue {
     const window = Math.min(this.pending.length, 6)
     for (let i = 0; i < window; i++) {
       const t = this.pending[i]
-      const p = inspector.handlePoint(t.item)
+      const p = t.item ? inspector.handlePoint(t.item) : t.rect ? { x: t.rect.x + t.rect.w / 2, y: t.rect.y + t.rect.h / 2 } : null
       const d = (p ? Math.hypot(p.x - agent.x, p.y - agent.y) : 0) + i * 60
       if (d < bestD) {
         bestD = d
