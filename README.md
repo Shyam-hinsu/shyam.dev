@@ -113,10 +113,11 @@ window".
 
 `src/windows/WindowManager.js` shares each window's screen position and cursor positions over BroadcastChannel
 (localStorage fallback). Every window renders the others' cursors at their true place on the monitor and draws a
-link to each linked window; idle cursors occasionally wander into a neighbouring window and come back. When two or more
-windows are linked, each one gets a rotating wireframe cube at its centre, drawn in shared screen space so the cubes
-stay put on the monitor while you drag the windows around them: a dependency-free port of Bjørn Staal's
-[multipleWindow3dScene](https://github.com/bgstaal/multipleWindow3dScene) (three.js original). Open a second
+link to each linked window; idle cursors occasionally wander into a neighbouring window and come back. Every desktop window also carries a
+sparse field of dust (`src/windows/DustField.js`): a few hundred 1px motes held in a soft halo around the window's
+centre that give way to the mouse. When two or more windows are linked, part of each window's dust streams across
+the gap to the other window's halo and back, a restrained take on Bjørn Staal's particle
+[multi-window scene](https://github.com/bgstaal/multipleWindow3dScene). Open a second
 window from the dock and drag it beside the first. Desktop only, same origin only, nothing leaves the browser. Trails and on/off persist in `localStorage`; Inspect mode never does. Off by default under
 `prefers-reduced-motion`, paused when the tab is hidden, and anything scrolled past is built instantly so content
 never stays hidden.

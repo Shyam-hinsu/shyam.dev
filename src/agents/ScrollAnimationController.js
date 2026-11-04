@@ -5,7 +5,7 @@ import { DOMInspector } from './DOMInspector.js'
 import { AnimationTaskQueue } from './AnimationTaskQueue.js'
 import { rand } from './easing.js'
 import { WindowManager } from '../windows/WindowManager.js'
-import { SceneLayer } from '../windows/SceneLayer.js'
+import { DustField, dustColor } from '../windows/DustField.js'
 
 /**
  * Orchestrates the whole show on one requestAnimationFrame loop:
@@ -45,7 +45,15 @@ export class ScrollAnimationController {
     this.introUntil = 0
     this.gathered = false
     this.world = null // WindowManager, desktop only
-    this.scene = null // SceneLayer: one wireframe cube per linked window
+    this.dust = null // DustField: this window's motes
+    this.pointer = null // last mouse position (viewport coords), desktop only
+    this.lastDustPublish = 0
+    this.onPointer = (e) => {
+      this.pointer = { x: e.clientX, y: e.clientY }
+    }
+    this.onPointerLeave = () => {
+      this.pointer = null
+    }
     this.lastRoamCheck = 0
     this.lastPublish = 0
 
@@ -114,7 +122,9 @@ export class ScrollAnimationController {
 
     if (!this.isMobile && !this.config.disableWorld) {
       this.world = new WindowManager()
-      this.scene = new SceneLayer()
+      this.dust = new DustField({ count: this.config.dustCount })
+      window.addEventListener('pointermove', this.onPointer, { passive: true })
+      document.addEventListener('pointerleave', this.onPointerLeave)
       this.world.onChange(() => (this.state.windows = this.world.others().length + 1))
       this.world.start()
       this.state.windows = 1
@@ -176,6 +186,8 @@ export class ScrollAnimationController {
     this.stopLoop()
     this.world?.stop()
     this.world = null
+    window.removeEventListener('pointermove', this.onPointer)
+    document.removeEventListener('pointerleave', this.onPointerLeave)
     this.clearTimers()
     clearTimeout(this.rescanTimer)
     this.observer?.disconnect()
@@ -453,6 +465,7 @@ export class ScrollAnimationController {
     this.raf = 0
     const dt = this.lastNow ? Math.min(0.05, (now - this.lastNow) / 1000) : 0.016
     this.lastNow = now
+    this.lastDt = dt
     const st = this.state
     const insp = this.inspector
     const mode = st.mode
@@ -541,6 +554,15 @@ export class ScrollAnimationController {
     })
     w.publishAgents(agents)
 
+    if (this.dust) {
+      const ptr = this.pointer ? w.toScreen(this.pointer.x, this.pointer.y) : null
+      this.dust.update(this.lastDt, w.shape, peers, ptr, now)
+      if (now - this.lastDustPublish > 33) {
+        this.lastDustPublish = now
+        if (peers.length) w.publishDust(this.dust.snapshot())
+      }
+    }
+
     // Idle cursors sometimes wander over to another window.
     if (!peers.length || now - this.lastRoamCheck < this.config.roamIdleMs) return
     this.lastRoamCheck = now
@@ -559,16 +581,17 @@ export class ScrollAnimationController {
   drawWorld(now) {
     const w = this.world
     if (!w) return
-    const peers = w.others()
-    if (!peers.length) return
     const r = this.renderer
-    // Wireframe cubes for every window (ours first), in shared screen space.
-    const windows = [{ id: w.id, created: w.created, ...w.shape }, ...peers].sort((a, b) => a.created - b.created)
-    this.scene.draw(r.ctx, w.shape, windows)
-    const me = { x: this.vw / 2, y: this.vh / 2 }
+    const peers = w.others()
+    // Dust: ours and every linked window's, each in its own colour, where it really is on the screen.
+    if (this.dust) {
+      const order = [{ id: w.id, created: w.created }, ...peers].sort((a, b) => a.created - b.created)
+      const colorOf = (id) => dustColor(order.findIndex((o) => o.id === id))
+      DustField.draw(r.ctx, this.dust.snapshot(), w.shape, colorOf(w.id), this.vw, this.vh, peers.length ? 0.6 : 0.38)
+      for (const p of peers) if (p.dust) DustField.draw(r.ctx, p.dust, w.shape, colorOf(p.id), this.vw, this.vh, 0.6)
+    }
+    if (!peers.length) return
     for (const p of peers) {
-      const c = w.toLocal(p.x + p.w / 2, p.y + p.h / 2)
-      r.drawWindowLink(me, c, 'linked window')
       for (const a of p.agents || []) {
         const l = w.toLocal(a.x, a.y)
         if (l.x < -40 || l.y < -40 || l.x > this.vw + 40 || l.y > this.vh + 40) continue
