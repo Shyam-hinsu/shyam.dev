@@ -5,6 +5,7 @@ import { DOMInspector } from './DOMInspector.js'
 import { AnimationTaskQueue } from './AnimationTaskQueue.js'
 import { rand } from './easing.js'
 import { WindowManager } from '../windows/WindowManager.js'
+import { SceneLayer } from '../windows/SceneLayer.js'
 
 /**
  * Orchestrates the whole show on one requestAnimationFrame loop:
@@ -44,6 +45,7 @@ export class ScrollAnimationController {
     this.introUntil = 0
     this.gathered = false
     this.world = null // WindowManager, desktop only
+    this.scene = null // SceneLayer: one wireframe cube per linked window
     this.lastRoamCheck = 0
     this.lastPublish = 0
 
@@ -112,6 +114,7 @@ export class ScrollAnimationController {
 
     if (!this.isMobile && !this.config.disableWorld) {
       this.world = new WindowManager()
+      this.scene = new SceneLayer()
       this.world.onChange(() => (this.state.windows = this.world.others().length + 1))
       this.world.start()
       this.state.windows = 1
@@ -559,6 +562,9 @@ export class ScrollAnimationController {
     const peers = w.others()
     if (!peers.length) return
     const r = this.renderer
+    // Wireframe cubes for every window (ours first), in shared screen space.
+    const windows = [{ id: w.id, created: w.created, ...w.shape }, ...peers].sort((a, b) => a.created - b.created)
+    this.scene.draw(r.ctx, w.shape, windows)
     const me = { x: this.vw / 2, y: this.vh / 2 }
     for (const p of peers) {
       const c = w.toLocal(p.x + p.w / 2, p.y + p.h / 2)
