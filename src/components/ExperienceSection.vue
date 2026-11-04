@@ -21,7 +21,7 @@ useReveal(root)
             <span class="mono">{{ job.period }}</span>
             <span v-if="job.location" class="job__loc muted">{{ job.location }}</span>
           </div>
-          <div class="job__body card" data-agent-element data-agent-handle="se">
+          <div class="job__body card" data-agent-element data-agent-handle="se" data-agent-name="Experience card">
             <header class="job__head">
               <div>
                 <h3 class="job__role">{{ job.role }}</h3>

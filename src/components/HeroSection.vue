@@ -62,10 +62,10 @@ onBeforeUnmount(() => {
           <span class="hero__name-text">{{ site.name }}</span>
           <span class="hero__name-title mono">{{ site.title }}</span>
         </p>
-        <h1 id="hero-title" class="display hero__title reveal is-visible" style="--reveal-delay: 160ms" data-agent-element data-agent-handle="e" v-html="hero.headline" />
-        <p class="lede hero__intro reveal is-visible" style="--reveal-delay: 260ms" data-agent-element data-agent-handle="e">{{ hero.intro }}</p>
+        <h1 id="hero-title" class="display hero__title reveal is-visible" style="--reveal-delay: 160ms" data-agent-element data-agent-handle="e" data-agent-name="Headline" v-html="hero.headline" />
+        <p class="lede hero__intro reveal is-visible" style="--reveal-delay: 260ms" data-agent-element data-agent-handle="e" data-agent-name="Intro copy">{{ hero.intro }}</p>
 
-        <div class="hero__cta reveal is-visible" style="--reveal-delay: 340ms" data-agent-element data-agent-handle="e">
+        <div class="hero__cta reveal is-visible" style="--reveal-delay: 340ms" data-agent-element data-agent-handle="e" data-agent-name="Call to action">
           <a class="btn btn--primary" :href="hero.primaryCta.href">
             {{ hero.primaryCta.label }} <IconGlyph name="arrow-down" />
           </a>
@@ -82,12 +82,12 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <ul class="hero__spec reveal is-visible" style="--reveal-delay: 420ms" aria-label="Specialisation" data-agent-element data-agent-handle="e">
+        <ul class="hero__spec reveal is-visible" style="--reveal-delay: 420ms" aria-label="Specialisation" data-agent-element data-agent-handle="e" data-agent-name="Specialisation">
           <li v-for="s in hero.specialization" :key="s">{{ s }}</li>
         </ul>
       </div>
 
-      <figure ref="frame" class="hero__figure reveal is-visible" style="--reveal-delay: 200ms" data-agent-element data-agent-atomic data-agent-handle="se">
+      <figure ref="frame" class="hero__figure reveal is-visible" style="--reveal-delay: 200ms" data-agent-element data-agent-atomic data-agent-handle="se" data-agent-name="Portrait">
         <div class="hero__frame">
           <picture>
             <source

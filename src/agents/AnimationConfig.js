@@ -62,6 +62,13 @@ export const CONFIG = {
   introMs: 1700,
   inspectCooldownMs: 6000, // a built section is re-inspected at most this often
   inspectHoldMs: [520, 900],
+
+  // Multi-window world: idle cursors occasionally wander into another window.
+  roamIdleMs: 2500, // idle this long before considering a trip
+  roamChance: 0.35, // per idle check (every roamIdleMs)
+  roamMaxAway: 2, // at most this many of ours visiting other windows at once
+  roamStayMs: [3000, 7000],
+  logLength: 6,
   sectionThreshold: 0.15,
   mobileBreakpoint: 768,
   storageKey: 'agents.prefs.v2',

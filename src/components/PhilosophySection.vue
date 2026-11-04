@@ -13,7 +13,7 @@ useReveal(root)
     <div class="container">
       <SectionHeading id="philosophy-title" :eyebrow="philosophy.eyebrow" :title="philosophy.title" />
 
-      <blockquote class="philosophy__quote reveal" data-agent-element data-agent-handle="e">
+      <blockquote class="philosophy__quote reveal" data-agent-element data-agent-handle="e" data-agent-name="Pull quote">
         <p class="display">“{{ philosophy.quote.text }}”</p>
         <footer class="mono">— {{ philosophy.quote.attribution }}</footer>
       </blockquote>

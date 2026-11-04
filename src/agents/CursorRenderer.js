@@ -186,6 +186,43 @@ export class CursorRenderer {
     ctx.restore()
   }
 
+  /** A cursor from another window, drawn where it is on the shared screen. */
+  drawRemoteCursor(a) {
+    this.drawCursor({ x: a.x, y: a.y, color: a.color, label: a.label, pressed: a.pressed, hovering: false }, !a.label)
+  }
+
+  drawRemoteTrail(a, now) {
+    if (!a.trail || a.trail.length < 2) return
+    this.drawTrail({ color: a.color, trail: a.trail }, now)
+  }
+
+  /** Thin link from this window's centre to another window's centre. */
+  drawWindowLink(from, to, label) {
+    const ctx = this.ctx
+    ctx.save()
+    ctx.strokeStyle = 'rgba(147, 197, 253, 0.35)'
+    ctx.lineWidth = 1
+    ctx.setLineDash([4, 6])
+    ctx.beginPath()
+    ctx.moveTo(from.x, from.y)
+    ctx.lineTo(to.x, to.y)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.fillStyle = 'rgba(147, 197, 253, 0.9)'
+    ctx.beginPath()
+    ctx.arc(from.x, from.y, 3, 0, Math.PI * 2)
+    ctx.fill()
+    if (label) {
+      ctx.font = this.fontSmall
+      ctx.fillStyle = 'rgba(191, 219, 254, 0.8)'
+      ctx.textBaseline = 'middle'
+      const mx = (from.x + to.x) / 2
+      const my = (from.y + to.y) / 2
+      ctx.fillText(label, mx + 6, my)
+    }
+    ctx.restore()
+  }
+
   drawCursor(agent, small = false) {
     const ctx = this.ctx
     const fill = agent.pressed ? this.config.dragColor : agent.color

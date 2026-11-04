@@ -42,7 +42,20 @@ const state = reactive({
   total: 0,
   elapsedMs: 0,
   section: '',
+  windows: 1,
+  log: [],
 })
+
+// A ticking clock so the live ticker can fade out on its own.
+const clock = ref(Date.now())
+let clockTimer = 0
+const latest = computed(() => {
+  const e = state.log[0]
+  return e && clock.value - e.t < 3200 ? e : null
+})
+const canOpenWindow = typeof window !== 'undefined' && window.matchMedia('(min-width: 48em) and (pointer: fine)').matches
+const openWindow = () => controller?.openWindow()
+const fmtTime = (t) => new Date(t).toLocaleTimeString([], { minute: '2-digit', second: '2-digit' })
 
 onMounted(() => {
   controller = new ScrollAnimationController({ canvas: canvas.value, root: document.getElementById('main'), state })
@@ -52,9 +65,11 @@ onMounted(() => {
   else {
     state.phase = 'off'
   }
+  clockTimer = setInterval(() => (clock.value = Date.now()), 400)
 })
 
 onBeforeUnmount(() => {
+  clearInterval(clockTimer)
   controller?.destroy()
   controller = null
 })
@@ -116,7 +131,26 @@ const status = computed(() => {
       <ul class="dock__legend" aria-label="Lead agents">
         <li v-for="a in LEAD_AGENTS" :key="a.id"><i :style="{ background: a.color }" aria-hidden="true" />{{ a.name }}</li>
       </ul>
+      <div v-if="canOpenWindow" class="dock__windows">
+        <p class="dock__help">
+          Open a second window and drag it beside this one: the five share one screen, and idle cursors wander between windows.
+        </p>
+        <button type="button" class="dock__btn" :disabled="!state.enabled" @click="openWindow">Open companion window</button>
+      </div>
+      <ol v-if="state.log.length" class="dock__log" aria-label="Agent activity">
+        <li v-for="e in state.log" :key="e.t + e.agent">
+          <span class="mono dock__log-time">{{ fmtTime(e.t) }}</span>
+          <span class="dock__log-agent mono">{{ e.agent }}</span>
+          <span class="dock__log-text">{{ e.verb }} {{ e.target }}<span v-if="e.dims" class="muted"> · {{ e.dims }}</span></span>
+        </li>
+      </ol>
     </div>
+
+    <Transition name="ticker">
+      <p v-if="latest && !open" class="dock__ticker mono" aria-live="polite">
+        <span class="dock__log-agent">{{ latest.agent }}</span> {{ latest.verb }} {{ latest.target }}<span v-if="latest.dims" class="muted"> · {{ latest.dims }}</span>
+      </p>
+    </Transition>
 
     <div class="dock__bar" role="group" aria-label="Agent dock">
       <button type="button" class="dock__status" :aria-expanded="open" aria-controls="agent-dock" @click="open = !open">
@@ -129,6 +163,8 @@ const status = computed(() => {
           <span class="dock__bar-track" aria-hidden="true"><i :style="{ width: progress + '%' }" /></span>
         </span>
         <button type="button" class="dock__chip" :class="{ 'is-on': state.mode === 'all' }" :aria-pressed="state.mode === 'all'" @click="toggleMode">Inspect: {{ state.mode === 'all' ? 'ALL' : 'AUTO' }}</button>
+        <span v-if="state.windows > 1" class="dock__chip is-on dock__chip--static">{{ state.windows }} windows linked</span>
+        <button v-else-if="canOpenWindow" type="button" class="dock__chip dock__chip--section" @click="openWindow">Open window</button>
         <button type="button" class="dock__chip dock__chip--section" @click="replaySection">Replay section</button>
         <button type="button" class="dock__chip" @click="replayAll">{{ state.phase === 'done' ? 'Replay' : 'Replay intro' }}</button>
         <button type="button" class="dock__chip dock__chip--icon" aria-label="Turn agents off" @click="disable"><IconGlyph name="close" /></button>
@@ -365,6 +401,65 @@ const status = computed(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
+}
+.dock__windows {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--line);
+}
+.dock__log {
+  display: grid;
+  gap: 0.3rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.7rem;
+  color: var(--ink-2);
+}
+.dock__log li {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+.dock__log-time {
+  color: var(--ink-4);
+  font-size: 0.62rem;
+}
+.dock__log-agent {
+  color: #93c5fd;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+}
+.dock__log-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dock__ticker {
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--r-pill);
+  background: rgba(17, 17, 20, 0.86);
+  border: 1px solid var(--line);
+  font-size: 0.64rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  max-width: min(36rem, calc(100vw - 2rem));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ticker-enter-active,
+.ticker-leave-active {
+  transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out);
+}
+.ticker-enter-from,
+.ticker-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.dock__chip--static {
+  cursor: default;
 }
 @media (max-width: 48em) {
   .dock__layers .dock__bar-track,

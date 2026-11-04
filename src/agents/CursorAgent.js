@@ -36,6 +36,18 @@ export class CursorAgent {
     this.orbitPhase = index * 1.25
     this.completed = 0
     this.anchor = { x: 0, y: 0 }
+    this.idleSince = 0
+    this.roam = null // { tx, ty, sx, sy, start, ms, until } while visiting another window
+  }
+
+  /** Send this cursor to a point (local coords, may be outside the viewport) and let it rest there. */
+  sendTo(x, y, now, stayMs) {
+    const dist = Math.hypot(x - this.x, y - this.y)
+    this.roam = { sx: this.x, sy: this.y, tx: x, ty: y, start: now, ms: clamp(300 + dist * 0.6, 500, 1600), until: now + stayMs }
+  }
+
+  get away() {
+    return !!this.roam
   }
 
   place(x, y) {
@@ -50,6 +62,7 @@ export class CursorAgent {
   /** Start a task: remember where we are and how long the glide should take. */
   assign(task, now, env) {
     this.task = task
+    this.idleSince = 0
     this.phase = 'approach'
     this.phaseStart = now
     this.sx = this.x
@@ -97,8 +110,23 @@ export class CursorAgent {
    */
   idle(now, dt, env) {
     const r = this.config.idleRadius
-    this.anchor.x = clamp(this.anchor.x, 24, env.vw - 24)
-    this.anchor.y = clamp(this.anchor.y, 24, env.vh - 24)
+    if (this.roam) {
+      // Travelling to, or resting in, another window: no viewport clamping.
+      const p = clamp((now - this.roam.start) / this.roam.ms, 0, 1)
+      const ep = easeOutCubic(p)
+      this.anchor.x = this.roam.sx + (this.roam.tx - this.roam.sx) * ep
+      this.anchor.y = this.roam.sy + (this.roam.ty - this.roam.sy) * ep
+      if (now > this.roam.until) {
+        // Come home: pick a spot inside our own viewport.
+        this.sendTo(rand(env.vw * 0.2, env.vw * 0.8), rand(env.vh * 0.25, env.vh * 0.75), now, 0)
+        this.roam.until = Infinity
+        this.roam.home = true
+      }
+      if (this.roam.home && p >= 1) this.roam = null
+    } else {
+      this.anchor.x = clamp(this.anchor.x, 24, env.vw - 24)
+      this.anchor.y = clamp(this.anchor.y, 24, env.vh - 24)
+    }
     this.orbitPhase += dt * 1.08
     const tx = this.anchor.x + Math.cos(this.orbitPhase + this.index) * r
     const ty = this.anchor.y + Math.sin(this.orbitPhase + this.index) * r
@@ -117,9 +145,13 @@ export class CursorAgent {
 
     if (!this.task) {
       const next = queue.claim(this, inspector)
-      if (next) this.assign(next, now, env)
+      if (next) {
+        this.roam = null
+        this.assign(next, now, env)
+      }
     }
     if (!this.task) {
+      if (!this.idleSince) this.idleSince = now
       this.idle(now, sdt, env)
       this.pushTrail(now)
       return
@@ -265,9 +297,10 @@ export class CursorAgent {
     this.task = null
     this.phase = 'idle'
     this.phaseStart = now
+    this.idleSince = now
     this.anchor.x = this.x
     this.anchor.y = this.y
-    queue.complete(task)
+    queue.complete(task, aborted ? null : this)
   }
 
   pushTrail(now) {

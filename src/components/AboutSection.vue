@@ -14,7 +14,7 @@ useReveal(root)
       <SectionHeading id="about-title" :eyebrow="about.eyebrow" :title="about.title" />
 
       <div class="about__grid">
-        <div class="about__text" data-agent-element data-agent-handle="s">
+        <div class="about__text" data-agent-element data-agent-handle="s" data-agent-name="About copy">
           <p
             v-for="(p, i) in about.paragraphs"
             :key="i"
@@ -27,7 +27,7 @@ useReveal(root)
         </div>
 
         <aside class="about__aside">
-          <figure class="about__photo reveal" data-agent-element data-agent-atomic data-agent-handle="se">
+          <figure class="about__photo reveal" data-agent-element data-agent-atomic data-agent-handle="se" data-agent-name="Photo">
             <img
               src="/images/portrait-square-480.webp"
               srcset="/images/portrait-square-480.webp 480w, /images/portrait-square-900.webp 900w"
@@ -39,7 +39,7 @@ useReveal(root)
               :alt="`${site.name} smiling, wearing round glasses and a black jacket`"
             />
           </figure>
-          <dl class="about__facts" data-agent-element data-agent-handle="s">
+          <dl class="about__facts" data-agent-element data-agent-handle="s" data-agent-name="Facts">
             <div v-for="(f, i) in about.facts" :key="f.label" class="about__fact reveal" :style="{ '--reveal-delay': `${120 + i * 70}ms` }">
               <dt class="mono">{{ f.label }}</dt>
               <dd>{{ f.value }}</dd>

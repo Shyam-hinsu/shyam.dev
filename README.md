@@ -106,8 +106,17 @@ paragraph, tag and button inside the frames. Controls can opt in to a simulated 
 `data-agent-action="hover|click|pulse"` plus an optional `data-agent-after` delay; every simulated action
 dispatches an `agent:action` DOM event.
 
-Dock: layer counter, Inspect AUTO/ALL, Replay section, Replay intro, turn off, plus a panel with Pause/Resume
-and Trails. Trails and on/off persist in `localStorage`; Inspect mode never does. Off by default under
+Dock: layer counter, Inspect AUTO/ALL, Replay section, Replay intro, turn off, plus a panel with Pause/Resume,
+Trails, an activity log of what each agent did ("DOM_Layout_02 resized Portrait · 453 × 608") and "Open companion
+window".
+
+### One screen, many windows
+
+`src/windows/WindowManager.js` shares each window's screen position and cursor positions over BroadcastChannel
+(localStorage fallback). Every window renders the others' cursors at their true place on the monitor and draws a
+link to each linked window; idle cursors occasionally wander into a neighbouring window and come back. Open a
+second window from the dock and drag it beside the first. Desktop only, same origin only, nothing leaves the
+browser. Trails and on/off persist in `localStorage`; Inspect mode never does. Off by default under
 `prefers-reduced-motion`, paused when the tab is hidden, and anything scrolled past is built instantly so content
 never stays hidden.
 

@@ -4,6 +4,7 @@ import { CursorRenderer } from './CursorRenderer.js'
 import { DOMInspector } from './DOMInspector.js'
 import { AnimationTaskQueue } from './AnimationTaskQueue.js'
 import { rand } from './easing.js'
+import { WindowManager } from '../windows/WindowManager.js'
 
 /**
  * Orchestrates the whole show on one requestAnimationFrame loop:
@@ -42,6 +43,9 @@ export class ScrollAnimationController {
     this.timers = new Set()
     this.introUntil = 0
     this.gathered = false
+    this.world = null // WindowManager, desktop only
+    this.lastRoamCheck = 0
+    this.lastPublish = 0
 
     this.onScroll = () => {
       this.inspector.dirty = true
@@ -106,8 +110,34 @@ export class ScrollAnimationController {
     document.addEventListener('visibilitychange', this.onVisibility)
     document.fonts?.load?.(this.renderer.fontMono).catch(() => {})
 
+    if (!this.isMobile && !this.config.disableWorld) {
+      this.world = new WindowManager()
+      this.world.onChange(() => (this.state.windows = this.world.others().length + 1))
+      this.world.start()
+      this.state.windows = 1
+    }
+
     this.beginIntro()
     this.startLoop()
+  }
+
+  /** Open a companion window next to this one (must be called from a click). */
+  openWindow() {
+    const w = Math.min(760, Math.round(window.outerWidth * 0.6))
+    const h = Math.min(680, Math.round(window.outerHeight * 0.8))
+    const left = window.screenX + window.outerWidth - 40
+    const top = window.screenY + 60
+    const url = new URL(location.href)
+    url.hash = '#projects'
+    window.open(url.toString(), '_blank', `popup=yes,width=${w},height=${h},left=${left},top=${top}`)
+  }
+
+  log(agent, verb, item) {
+    const el = item?.el
+    const name = el ? el.getAttribute('aria-label') || el.querySelector('h1, h2, h3, .form__title')?.textContent?.trim() || el.dataset.agentName || el.className.split(' ')[0] : ''
+    const dims = item?.rect ? `${Math.round(item.rect.w)} × ${Math.round(item.rect.h)}` : ''
+    const entry = { t: Date.now(), agent: agent.label || agent.name, verb, target: name.slice(0, 40), dims }
+    this.state.log = [entry, ...(this.state.log || [])].slice(0, this.config.logLength)
   }
 
   later(fn, ms) {
@@ -141,6 +171,8 @@ export class ScrollAnimationController {
 
   destroy() {
     this.stopLoop()
+    this.world?.stop()
+    this.world = null
     this.clearTimers()
     clearTimeout(this.rescanTimer)
     this.observer?.disconnect()
@@ -237,8 +269,9 @@ export class ScrollAnimationController {
         kind: 'build',
         item,
         sectionId: sec.id,
-        onDone: () => {
+        onDone: (agent) => {
           remaining--
+          if (agent) this.log(agent, item.kind === 'layer' ? 'placed' : 'resized', item)
           if (remaining <= 0) this.sectionDone(sec)
         },
       })
@@ -437,9 +470,11 @@ export class ScrollAnimationController {
       speed: 1,
     }
     for (const a of this.agents) a.update(now, dt, env)
+    this.syncWorld(now)
 
     const r = this.renderer
     r.clear()
+    this.drawWorld(now)
     this.drawSkeletons(now, dt, mode)
     for (const a of this.agents) {
       if (st.trails) r.drawTrail(a, now)
@@ -484,6 +519,55 @@ export class ScrollAnimationController {
         } else {
           r.drawFrame(insp.visualRect(item), { dragging: item.status === 'dragging', hovered: item.hovered })
         }
+      }
+    }
+  }
+
+  /* ----- the shared screen-space world ----- */
+
+  syncWorld(now) {
+    const w = this.world
+    if (!w) return
+    w.measure()
+    const peers = w.others()
+    // Broadcast our cursors in screen coordinates (every frame; local only).
+    const agents = this.agents.map((a) => {
+      const s = w.toScreen(a.x, a.y)
+      const trail = a.trail.slice(-8).map((p) => ({ ...w.toScreen(p.x, p.y), t: p.t }))
+      return { x: s.x, y: s.y, color: a.color, label: a.label, pressed: a.pressed, trail }
+    })
+    w.publishAgents(agents)
+
+    // Idle cursors sometimes wander over to another window.
+    if (!peers.length || now - this.lastRoamCheck < this.config.roamIdleMs) return
+    this.lastRoamCheck = now
+    const away = this.agents.filter((a) => a.away).length
+    if (away >= this.config.roamMaxAway) return
+    const candidates = this.agents.filter((a) => !a.task && !a.away && a.idleSince && now - a.idleSince > this.config.roamIdleMs)
+    if (!candidates.length || Math.random() > this.config.roamChance) return
+    const a = candidates[Math.floor(Math.random() * candidates.length)]
+    const peer = peers[Math.floor(Math.random() * peers.length)]
+    const target = w.toLocal(peer.x + rand(peer.w * 0.15, peer.w * 0.85), peer.y + rand(peer.h * 0.2, peer.h * 0.8))
+    a.sendTo(target.x, target.y, now, rand(this.config.roamStayMs[0], this.config.roamStayMs[1]))
+    this.log(a, 'visited', null)
+    this.state.log[0].target = 'another window'
+  }
+
+  drawWorld(now) {
+    const w = this.world
+    if (!w) return
+    const peers = w.others()
+    if (!peers.length) return
+    const r = this.renderer
+    const me = { x: this.vw / 2, y: this.vh / 2 }
+    for (const p of peers) {
+      const c = w.toLocal(p.x + p.w / 2, p.y + p.h / 2)
+      r.drawWindowLink(me, c, 'linked window')
+      for (const a of p.agents || []) {
+        const l = w.toLocal(a.x, a.y)
+        if (l.x < -40 || l.y < -40 || l.x > this.vw + 40 || l.y > this.vh + 40) continue
+        if (this.state.trails && a.trail) r.drawRemoteTrail({ color: a.color, trail: a.trail.map((q) => ({ ...w.toLocal(q.x, q.y), t: q.t })) }, now)
+        r.drawRemoteCursor({ ...a, x: l.x, y: l.y })
       }
     }
   }

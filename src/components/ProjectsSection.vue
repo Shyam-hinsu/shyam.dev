@@ -39,7 +39,7 @@ function onClosed() {
         screenshots are not published; architecture diagrams show how each system is built.
       </SectionHeading>
 
-      <div class="projects__filters reveal" role="group" aria-label="Filter projects by category" data-agent-element data-agent-handle="e">
+      <div class="projects__filters reveal" role="group" aria-label="Filter projects by category" data-agent-element data-agent-handle="e" data-agent-name="Filters">
         <button
           v-for="c in projectCategories"
           :key="c"

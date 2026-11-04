@@ -83,7 +83,7 @@ async function submit() {
       </SectionHeading>
 
       <div class="contact__grid">
-        <ul class="contact__channels" data-agent-element data-agent-handle="s">
+        <ul class="contact__channels" data-agent-element data-agent-handle="s" data-agent-name="Contact channels">
           <li v-if="site.email" class="reveal">
             <a class="channel" :href="`mailto:${site.email}`">
               <span class="channel__icon"><IconGlyph name="mail" /></span>

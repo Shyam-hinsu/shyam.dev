@@ -33,19 +33,19 @@ useReveal(root)
           </header>
 
           <div class="case__grid">
-            <ol class="case__steps" data-agent-element data-agent-handle="s">
+            <ol class="case__steps" data-agent-element data-agent-handle="s" data-agent-name="Problem to result">
               <li v-for="(s, i) in item.steps" :key="s.label" class="case__step">
                 <span class="case__step-label mono">{{ s.label }}</span>
                 <p>{{ s.text }}</p>
                 <span v-if="i < item.steps.length - 1" class="case__step-line" aria-hidden="true" />
               </li>
             </ol>
-            <div class="case__aside" data-agent-element data-agent-atomic data-agent-handle="se">
+            <div class="case__aside" data-agent-element data-agent-atomic data-agent-handle="se" data-agent-name="Code sample">
               <CodeBlock :source="item.code.source" :filename="item.code.filename" />
             </div>
           </div>
 
-          <div v-if="item.hasDemo" class="case__demo" data-agent-element data-agent-atomic data-agent-handle="se">
+          <div v-if="item.hasDemo" class="case__demo" data-agent-element data-agent-atomic data-agent-handle="se" data-agent-name="Live demo">
             <p class="eyebrow">Live demo</p>
             <TopologyDemo />
           </div>

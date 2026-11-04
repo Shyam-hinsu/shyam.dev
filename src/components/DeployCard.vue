@@ -8,7 +8,7 @@ const emit = defineEmits(['gather'])
 </script>
 
 <template>
-  <button type="button" class="deploy" data-agent-finale data-agent-element data-agent-atomic data-agent-handle="se" @click="emit('gather')">
+  <button type="button" class="deploy" data-agent-finale data-agent-element data-agent-atomic data-agent-handle="se" data-agent-name="Deploy card" @click="emit('gather')">
     <span class="deploy__meta mono">
       <span>Production deploy queue</span>
       <span>{{ LEAD_AGENTS.length }} agents ready</span>

@@ -32,9 +32,9 @@ export class AnimationTaskQueue {
     return task
   }
 
-  complete(task) {
+  complete(task, agent) {
     if (this.active.delete(task)) this.completed++
-    task.onDone?.()
+    task.onDone?.(agent)
   }
 
   cancelAll() {
