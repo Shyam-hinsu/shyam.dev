@@ -87,7 +87,7 @@ export class CursorRenderer {
     if (rect.y + rect.h < 0 || rect.y > this.vh) return
     const ctx = this.ctx
     const c = this.config
-    const stroke = dragging ? c.dragColor : hovered ? '#bfdbfe' : c.wireStroke
+    const stroke = dragging ? c.dragColor : hovered ? 'rgba(243, 241, 236, 0.8)' : c.wireStroke
     const x = Math.round(rect.x) + 0.5
     const y = Math.round(rect.y) + 0.5
     const w = Math.round(rect.w)
@@ -95,16 +95,16 @@ export class CursorRenderer {
     ctx.save()
     ctx.globalAlpha = alpha
     if (fill) {
-      ctx.fillStyle = dragging ? 'rgba(255, 30, 66, 0.06)' : c.wireFillFrame
+      ctx.fillStyle = dragging ? 'rgba(227, 50, 63, 0.04)' : c.wireFillFrame
       ctx.fillRect(x, y, w, h)
     }
     ctx.strokeStyle = stroke
-    ctx.lineWidth = dragging ? 1.5 : 1
+    ctx.lineWidth = 1
     ctx.strokeRect(x, y, w, h)
     if (dragging && w > 200) {
       ctx.save()
-      ctx.setLineDash([3, 4])
-      ctx.strokeStyle = 'rgba(255, 30, 66, 0.35)'
+      ctx.setLineDash([2, 6])
+      ctx.strokeStyle = 'rgba(227, 50, 63, 0.25)'
       ctx.lineWidth = 1
       ctx.beginPath()
       ctx.moveTo(0, y + h)
@@ -115,8 +115,8 @@ export class CursorRenderer {
       ctx.restore()
     }
     const hs = c.handleSize
-    ctx.fillStyle = '#fff'
-    ctx.strokeStyle = stroke
+    ctx.fillStyle = dragging ? c.dragColor : '#f3f1ec'
+    ctx.strokeStyle = 'rgba(11, 11, 13, 0.9)'
     for (const [hx, hy] of [
       [x, y], [x + w / 2, y], [x + w, y],
       [x, y + h / 2], [x + w, y + h / 2],
@@ -137,13 +137,16 @@ export class CursorRenderer {
     const ph = 16
     const px = Math.max(4, Math.min(this.vw - pw - 4, x + w - pw))
     const py = y + h + 6 < this.vh - ph ? y + h + 6 : y - ph - 6
-    ctx.fillStyle = red ? '#e11d48' : '#2563eb'
+    ctx.fillStyle = 'rgba(17, 17, 20, 0.88)'
+    ctx.strokeStyle = red ? 'rgba(227, 50, 63, 0.7)' : 'rgba(255, 255, 255, 0.14)'
+    ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.roundRect(px, py, pw, ph, 3)
+    ctx.roundRect(px + 0.5, py + 0.5, pw, ph, 4)
     ctx.fill()
-    ctx.fillStyle = '#fff'
+    ctx.stroke()
+    ctx.fillStyle = red ? '#ff5f6a' : '#c9c6bf'
     ctx.textBaseline = 'middle'
-    ctx.fillText(label, px + 5, py + ph / 2 + 0.5)
+    ctx.fillText(label, px + 5.5, py + ph / 2 + 1)
   }
 
   drawTrail(agent, now) {
@@ -156,10 +159,10 @@ export class CursorRenderer {
     ctx.lineJoin = 'round'
     ctx.strokeStyle = agent.color
     for (let i = 1; i < t.length; i++) {
-      const a = Math.max(0, 1 - (now - t[i].t) / life) * 0.5
+      const a = Math.max(0, 1 - (now - t[i].t) / life) * 0.3
       if (a <= 0.01) continue
       ctx.globalAlpha = a
-      ctx.lineWidth = 0.8 + (i / t.length) * 1.4
+      ctx.lineWidth = 0.6 + (i / t.length) * 0.8
       ctx.beginPath()
       ctx.moveTo(t[i - 1].x, t[i - 1].y)
       ctx.lineTo(t[i].x, t[i].y)
@@ -176,9 +179,9 @@ export class CursorRenderer {
     for (const r of agent.ripples) {
       const p = (now - r.t0) / ms
       if (p >= 1 || p < 0) continue
-      ctx.globalAlpha = (1 - p) * (r.strong ? 0.9 : 0.6)
-      ctx.strokeStyle = r.strong ? this.config.dragColor : agent.color
-      ctx.lineWidth = r.strong ? 1.6 : 1.1
+      ctx.globalAlpha = (1 - p) * (r.strong ? 0.7 : 0.4)
+      ctx.strokeStyle = r.strong ? this.config.dragColor : 'rgba(243, 241, 236, 0.9)'
+      ctx.lineWidth = 1
       ctx.beginPath()
       ctx.arc(r.x, r.y, (r.strong ? 26 : 14) * p, 0, Math.PI * 2)
       ctx.stroke()
@@ -225,10 +228,10 @@ export class CursorRenderer {
 
   drawCursor(agent, small = false) {
     const ctx = this.ctx
-    const fill = agent.pressed ? this.config.dragColor : agent.color
+    const fill = agent.pressed ? this.config.dragColor : '#f3f1ec'
     ctx.save()
     ctx.translate(agent.x, agent.y)
-    const s = (small ? 0.72 : 1) * (agent.pressed ? 0.9 : agent.hovering ? 1.06 : 1)
+    const s = (small ? 0.72 : 0.92) * (agent.pressed ? 0.9 : agent.hovering ? 1.04 : 1)
     ctx.scale(s, s)
     ctx.beginPath()
     ctx.moveTo(0, 0)
@@ -241,20 +244,28 @@ export class CursorRenderer {
     ctx.closePath()
     ctx.fillStyle = fill
     ctx.fill()
-    ctx.lineWidth = 1.3
-    ctx.strokeStyle = '#fff'
+    ctx.lineWidth = 1.2
+    ctx.strokeStyle = 'rgba(11, 11, 13, 0.95)'
     ctx.lineJoin = 'round'
     ctx.stroke()
     if (agent.label) {
-      ctx.font = this.fontMono
+      ctx.font = this.fontSmall
       const tw = ctx.measureText(agent.label).width
-      ctx.fillStyle = fill
+      const pw = tw + 20
+      ctx.fillStyle = 'rgba(17, 17, 20, 0.86)'
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)'
+      ctx.lineWidth = 1
       ctx.beginPath()
-      ctx.roundRect(12, 14, tw + 10, 15, 3.5)
+      ctx.roundRect(13.5, 15.5, pw, 16, 8)
       ctx.fill()
-      ctx.fillStyle = '#07070a'
+      ctx.stroke()
+      ctx.fillStyle = agent.color
+      ctx.beginPath()
+      ctx.arc(21, 23.5, 2.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#c9c6bf'
       ctx.textBaseline = 'middle'
-      ctx.fillText(agent.label, 17, 21.5)
+      ctx.fillText(agent.label, 27, 24)
     }
     ctx.restore()
   }

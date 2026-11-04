@@ -10,6 +10,7 @@ import IconGlyph from './IconGlyph.vue'
  * splash and the control dock. With the engine off, the page is simply shown.
  */
 const canvas = ref(null)
+const dustCanvas = ref(null)
 const open = ref(false)
 let controller = null
 
@@ -36,7 +37,7 @@ const state = reactive({
   paused: false,
   phase: 'idle',
   mode: 'auto',
-  trails: prefs.trails ?? true,
+  trails: prefs.trails ?? false,
   dust: prefs.dust ?? true,
   agents: 0,
   built: 0,
@@ -47,30 +48,21 @@ const state = reactive({
   log: [],
 })
 
-// A ticking clock so the live ticker can fade out on its own.
-const clock = ref(Date.now())
-let clockTimer = 0
-const latest = computed(() => {
-  const e = state.log[0]
-  return e && clock.value - e.t < 3200 ? e : null
-})
 const canOpenWindow = typeof window !== 'undefined' && window.matchMedia('(pointer: fine) and (hover: hover)').matches
 const openWindow = () => controller?.openWindow()
 const fmtTime = (t) => new Date(t).toLocaleTimeString([], { minute: '2-digit', second: '2-digit' })
 
 onMounted(() => {
-  controller = new ScrollAnimationController({ canvas: canvas.value, root: document.getElementById('main'), state })
+  controller = new ScrollAnimationController({ canvas: canvas.value, dustCanvas: dustCanvas.value, root: document.getElementById('main'), state })
   // ?agents-debug exposes the engine for automated checks.
   if (new URLSearchParams(location.search).has('agents-debug')) window.__agentController = controller
   if (state.enabled) controller.init()
   else {
     state.phase = 'off'
   }
-  clockTimer = setInterval(() => (clock.value = Date.now()), 400)
 })
 
 onBeforeUnmount(() => {
-  clearInterval(clockTimer)
   controller?.destroy()
   controller = null
 })
@@ -107,6 +99,7 @@ const status = computed(() => {
 </script>
 
 <template>
+  <canvas ref="dustCanvas" class="dust-canvas" aria-hidden="true" />
   <canvas ref="canvas" class="agents-canvas" aria-hidden="true" />
 
   <Transition name="splash">
@@ -122,22 +115,20 @@ const status = computed(() => {
         Five simulated UI agents wireframe and build each section as you scroll to it. Purely visual: no AI, no network.
       </p>
       <div class="dock__row" role="group" aria-label="Agent controls">
-        <button v-if="state.enabled" type="button" class="dock__btn" @click="disable"><IconGlyph name="close" /> Turn off</button>
-        <button v-else type="button" class="dock__btn" @click="enable"><IconGlyph name="check" /> Turn on</button>
         <button type="button" class="dock__btn" :disabled="!state.enabled" @click="togglePause">{{ state.paused ? 'Resume' : 'Pause' }}</button>
-        <button type="button" class="dock__btn" :disabled="!state.enabled" :aria-pressed="state.mode === 'all'" @click="toggleMode">Inspect: {{ state.mode === 'all' ? 'ALL' : 'AUTO' }}</button>
-        <button type="button" class="dock__btn" :disabled="!state.enabled" :aria-pressed="state.trails" @click="toggleTrails">Trails: {{ state.trails ? 'On' : 'Off' }}</button>
-        <button v-if="canOpenWindow" type="button" class="dock__btn" :disabled="!state.enabled" :aria-pressed="state.dust" @click="toggleDust">Dust: {{ state.dust ? 'On' : 'Off' }}</button>
         <button type="button" class="dock__btn" :disabled="!state.enabled" @click="replaySection">Replay section</button>
         <button type="button" class="dock__btn" :disabled="!state.enabled" @click="replayAll">Replay intro</button>
+        <button type="button" class="dock__btn" :disabled="!state.enabled" :aria-pressed="state.mode === 'all'" @click="toggleMode">Inspect all</button>
+        <button type="button" class="dock__btn" :disabled="!state.enabled" :aria-pressed="state.trails" @click="toggleTrails">Trails</button>
+        <button v-if="canOpenWindow" type="button" class="dock__btn" :disabled="!state.enabled" :aria-pressed="state.dust" @click="toggleDust">Dust</button>
+        <button v-if="state.enabled" type="button" class="dock__btn dock__btn--quiet" @click="disable">Turn agents off</button>
+        <button v-else type="button" class="dock__btn" @click="enable">Turn agents on</button>
       </div>
       <ul class="dock__legend" aria-label="Lead agents">
         <li v-for="a in LEAD_AGENTS" :key="a.id"><i :style="{ background: a.color }" aria-hidden="true" />{{ a.name }}</li>
       </ul>
       <div v-if="canOpenWindow" class="dock__windows">
-        <p class="dock__help">
-          Open a second window and drag it beside this one: the five share one screen, and idle cursors wander between windows.
-        </p>
+        <p class="dock__help">Open a second window and drag it beside this one. The two share one screen.</p>
         <button type="button" class="dock__btn" :disabled="!state.enabled" @click="openWindow">Open companion window</button>
       </div>
       <ol v-if="state.log.length" class="dock__log" aria-label="Agent activity">
@@ -149,11 +140,7 @@ const status = computed(() => {
       </ol>
     </div>
 
-    <Transition name="ticker">
-      <p v-if="latest && !open" class="dock__ticker mono" aria-live="polite">
-        <span class="dock__log-agent">{{ latest.agent }}</span> {{ latest.verb }} {{ latest.target }}<span v-if="latest.dims" class="muted"> · {{ latest.dims }}</span>
-      </p>
-    </Transition>
+
 
     <div class="dock__bar" role="group" aria-label="Agent dock">
       <button type="button" class="dock__status" :aria-expanded="open" aria-controls="agent-dock" @click="open = !open">
@@ -162,15 +149,13 @@ const status = computed(() => {
       </button>
       <template v-if="state.enabled">
         <span class="dock__layers mono">
-          <span class="dock__count">{{ state.built }} / {{ state.total }} layers</span>
+          <span class="dock__count">{{ state.built }} / {{ state.total }}</span>
           <span class="dock__bar-track" aria-hidden="true"><i :style="{ width: progress + '%' }" /></span>
         </span>
-        <button type="button" class="dock__chip" :class="{ 'is-on': state.mode === 'all' }" :aria-pressed="state.mode === 'all'" @click="toggleMode">Inspect: {{ state.mode === 'all' ? 'ALL' : 'AUTO' }}</button>
-        <span v-if="state.windows > 1" class="dock__chip is-on dock__chip--static">{{ state.windows }} windows linked</span>
-        <button v-else-if="canOpenWindow" type="button" class="dock__chip dock__chip--section" @click="openWindow">Open window</button>
-        <button type="button" class="dock__chip dock__chip--section" @click="replaySection">Replay section</button>
-        <button type="button" class="dock__chip" @click="replayAll">{{ state.phase === 'done' ? 'Replay' : 'Replay intro' }}</button>
-        <button type="button" class="dock__chip dock__chip--icon" aria-label="Turn agents off" @click="disable"><IconGlyph name="close" /></button>
+        <span v-if="state.windows > 1" class="dock__linked mono"><i aria-hidden="true" />{{ state.windows }} windows</span>
+        <button type="button" class="dock__chip dock__chip--icon" :aria-expanded="open" aria-controls="agent-dock" aria-label="Agent options" @click="open = !open">
+          <IconGlyph :name="open ? 'close' : 'menu'" />
+        </button>
       </template>
       <button v-else type="button" class="dock__chip" @click="enable">Turn on</button>
     </div>
@@ -178,6 +163,12 @@ const status = computed(() => {
 </template>
 
 <style scoped>
+.dust-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
 .agents-canvas {
   position: fixed;
   inset: 0;
@@ -236,11 +227,11 @@ const status = computed(() => {
 .dock__bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.35rem 0.4rem 0.35rem 0.5rem;
+  gap: 0.6rem;
+  padding: 0.3rem 0.3rem 0.3rem 0.5rem;
   border-radius: var(--r-pill);
-  background: rgba(17, 17, 20, 0.88);
-  border: 1px solid var(--line-strong);
+  background: rgba(17, 17, 20, 0.78);
+  border: 1px solid var(--line);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   box-shadow: 0 20px 40px -20px rgba(0, 0, 0, 0.9);
@@ -261,21 +252,42 @@ const status = computed(() => {
   display: inline-flex;
 }
 .dock__agents i {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   border: 1.5px solid #111;
   margin-left: -3px;
+  opacity: 0.85;
 }
 .dock__agents i:first-child {
   margin-left: 0;
 }
 .dock__label {
-  font-size: 0.66rem;
+  font-size: 0.64rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.dock__linked {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.62rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink);
+  color: var(--ink-3);
   white-space: nowrap;
+}
+.dock__linked i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+.dock__btn--quiet {
+  grid-column: 1 / -1;
+  color: var(--ink-3);
 }
 .dock__layers {
   display: inline-flex;
@@ -296,7 +308,7 @@ const status = computed(() => {
 .dock__bar-track i {
   display: block;
   height: 100%;
-  background: #3b82f6;
+  background: var(--ink-2);
   transition: width 200ms linear;
 }
 .dock__chip {
@@ -318,9 +330,9 @@ const status = computed(() => {
   border-color: var(--line-strong);
 }
 .dock__chip.is-on {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--ink-3);
+  color: var(--ink);
 }
 .dock__chip--primary {
   background: var(--accent);
@@ -430,7 +442,7 @@ const status = computed(() => {
   font-size: 0.62rem;
 }
 .dock__log-agent {
-  color: #93c5fd;
+  color: var(--ink-2);
   font-size: 0.62rem;
   letter-spacing: 0.04em;
 }
@@ -438,28 +450,6 @@ const status = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.dock__ticker {
-  padding: 0.3rem 0.75rem;
-  border-radius: var(--r-pill);
-  background: rgba(17, 17, 20, 0.86);
-  border: 1px solid var(--line);
-  font-size: 0.64rem;
-  letter-spacing: 0.04em;
-  color: var(--ink-2);
-  max-width: min(36rem, calc(100vw - 2rem));
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ticker-enter-active,
-.ticker-leave-active {
-  transition: opacity 240ms var(--ease-out), transform 240ms var(--ease-out);
-}
-.ticker-enter-from,
-.ticker-leave-to {
-  opacity: 0;
-  transform: translateY(6px);
 }
 .dock__chip--static {
   cursor: default;

@@ -6,11 +6,12 @@
 
 /** The five named lead agents (labelled pointers). */
 export const LEAD_AGENTS = [
-  { id: 'ui', name: 'UI Agent', label: 'UI_Agent_01', color: '#3b82f6', speed: 1.0 },
-  { id: 'dom', name: 'DOM Layout Agent', label: 'DOM_Layout_02', color: '#ef4444', speed: 0.9 },
-  { id: 'gfx', name: 'Graphics Agent', label: 'Graphics_03', color: '#10b981', speed: 1.12 },
-  { id: 'motion', name: 'Motion Agent', label: 'Motion_04', color: '#f59e0b', speed: 1.25 },
-  { id: 'state', name: 'State Agent', label: 'State_05', color: '#a855f7', speed: 0.85 },
+  // Pointers are all ivory; the colour is a small identity dot on the label.
+  { id: 'ui', name: 'UI Agent', label: 'UI_Agent_01', color: '#e3323f', speed: 1.0 },
+  { id: 'dom', name: 'DOM Layout Agent', label: 'DOM_Layout_02', color: '#8a97b8', speed: 0.9 },
+  { id: 'gfx', name: 'Graphics Agent', label: 'Graphics_03', color: '#8fb3a0', speed: 1.12 },
+  { id: 'motion', name: 'Motion Agent', label: 'Motion_04', color: '#c9a86a', speed: 1.25 },
+  { id: 'state', name: 'State Agent', label: 'State_05', color: '#a68fb3', speed: 0.85 },
 ]
 
 /** Unlabelled worker cursors cycle through this palette. */
@@ -27,11 +28,11 @@ export const CONFIG = {
   discoverLayers: false,
 
   // Colours
-  wireStroke: 'rgba(147, 197, 253, 0.95)',
-  wireFill: 'rgba(99, 125, 165, 0.22)',
-  wireFillFrame: 'rgba(99, 125, 165, 0.08)',
-  dragColor: '#ff1e42',
-  handleSize: 5,
+  wireStroke: 'rgba(243, 241, 236, 0.42)',
+  wireFill: 'rgba(243, 241, 236, 0.06)',
+  wireFillFrame: 'rgba(243, 241, 236, 0.025)',
+  dragColor: '#e3323f',
+  handleSize: 4,
 
   // Cursor physics (durations in ms at 1x speed)
   approachRate: 10,
@@ -69,7 +70,7 @@ export const CONFIG = {
   roamMaxAway: 2, // at most this many of ours visiting other windows at once
   roamStayMs: [3000, 7000],
   logLength: 6,
-  dustCount: 14000, // particles per window at 1440×900, scaled by area (desktop only)
+  dustCount: 11000, // particles per window at 1440×900, scaled by area (desktop only)
   sectionThreshold: 0.15,
   mobileBreakpoint: 768,
   storageKey: 'agents.prefs.v2',

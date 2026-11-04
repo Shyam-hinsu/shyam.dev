@@ -18,8 +18,10 @@ import { DustField, DustRenderer, dustColor, dustCountFor } from '../windows/Dus
  *   mode ('auto'|'all'), trails, agents, built, total, elapsedMs, section
  */
 export class ScrollAnimationController {
-  constructor({ canvas, root, state, config = CONFIG }) {
+  constructor({ canvas, dustCanvas, root, state, config = CONFIG }) {
     this.canvas = canvas
+    this.dustCanvas = dustCanvas || null
+    this.dustCtx = dustCanvas ? dustCanvas.getContext('2d') : null
     this.root = root || document.querySelector('main') || document.body
     this.state = state
     this.config = { ...config }
@@ -180,6 +182,7 @@ export class ScrollAnimationController {
     this.stopLoop()
     this.world?.stop()
     this.world = null
+    this.dustCtx?.clearRect(0, 0, this.vw, this.vh)
     this.clearTimers()
     clearTimeout(this.rescanTimer)
     this.observer?.disconnect()
@@ -198,6 +201,14 @@ export class ScrollAnimationController {
     this.config.trailLength = this.isMobile ? CONFIG.trailLengthMobile : CONFIG.trailLength
     this.renderer.resize(this.vw, this.vh)
     this.inspector.setViewport(this.vw, this.vh)
+    if (this.dustCanvas) {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      this.dustCanvas.width = Math.round(this.vw * dpr)
+      this.dustCanvas.height = Math.round(this.vh * dpr)
+      this.dustCanvas.style.width = `${this.vw}px`
+      this.dustCanvas.style.height = `${this.vh}px`
+      this.dustCtx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
   }
 
   rescan() {
@@ -433,6 +444,7 @@ export class ScrollAnimationController {
       this.state.built = this.inspector.builtCount
       this.state.phase = 'off'
       this.renderer.clear()
+      this.dustCtx?.clearRect(0, 0, this.vw, this.vh)
     } else {
       this.state.paused = false
       this.state.phase = 'idle'
@@ -482,6 +494,7 @@ export class ScrollAnimationController {
 
     const r = this.renderer
     r.clear()
+    this.dustCtx?.clearRect(0, 0, this.vw, this.vh)
     this.drawWorld(now)
     this.drawSkeletons(now, dt, mode)
     for (const a of this.agents) {
@@ -579,7 +592,7 @@ export class ScrollAnimationController {
         return { ...win, field, color: dustColor(i) }
       })
       for (const id of this.fields.keys()) if (!all.some((a) => a.id === id)) this.fields.delete(id)
-      this.dustRenderer.render(r.ctx, w.shape, windows, this.vw, this.vh, this.isMobile ? 0.8 : 1)
+      this.dustRenderer.render(this.dustCtx || r.ctx, w.shape, windows, this.vw, this.vh, 0.85)
     }
     if (!peers.length) return
     for (const p of peers) {

@@ -13,11 +13,11 @@
 import { clamp } from '../agents/easing.js'
 
 export const DUST_COLORS = [
-  [236, 52, 68], // crimson
-  [46, 229, 110], // green
-  [96, 165, 250], // blue
-  [251, 191, 36], // amber
-  [192, 132, 252], // violet
+  [227, 50, 63], // crimson: the site accent
+  [214, 218, 228], // silver
+  [201, 168, 106], // sand
+  [138, 151, 184], // slate
+  [166, 143, 179], // mauve
 ]
 
 const midnight = (() => {
@@ -175,9 +175,9 @@ export class DustRenderer {
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
     ctx.imageSmoothingEnabled = true
-    ctx.globalAlpha = 0.7 * strength
+    ctx.globalAlpha = 0.5 * strength
     ctx.drawImage(this.bloom2, 0, 0, vw, vh)
-    ctx.globalAlpha = 0.6 * strength
+    ctx.globalAlpha = 0.45 * strength
     ctx.drawImage(this.bloom, 0, 0, vw, vh)
     ctx.globalAlpha = 1
     ctx.drawImage(this.buf, 0, 0, vw, vh)
@@ -294,7 +294,7 @@ export class DustRenderer {
       const idx = ((by | 0) * W + (bx | 0)) * 4
       const big = f.bright[i] > 0.5 && depth > 0.2 && bx < W - 1 && by < H - 1
       // Front particles brighter; filaments brighter still, tinted towards white.
-      const a = (0.3 + 0.7 * (depth + 1) * 0.5) * (0.3 + f.bright[i] * 0.9) * 1.25 * strength
+      const a = (0.3 + 0.7 * (depth + 1) * 0.5) * (0.3 + f.bright[i] * 0.9) * 0.95 * strength
       const white = f.bright[i] * 0.5 * (depth + 1) * 0.5
       const rr = (cr + (255 - cr) * white) * a
       const gg = (cg + (255 - cg) * white) * a
