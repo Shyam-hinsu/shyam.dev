@@ -1,21 +1,18 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { projects, projectCategories } from '../content/projects.js'
+import { projects, projectsIntro } from '../content/projects.js'
 import { useReveal } from '../composables/useReveal.js'
 import { useHashRoute } from '../composables/useHashRoute.js'
 import SectionHeading from './SectionHeading.vue'
 import ProjectCard from './ProjectCard.vue'
 import ProjectCaseStudy from './ProjectCaseStudy.vue'
+import IconGlyph from './IconGlyph.vue'
 
 const root = ref(null)
 useReveal(root)
 
-const filter = ref('All')
-const visible = computed(() =>
-  filter.value === 'All' ? projects : projects.filter((p) => p.category === filter.value),
-)
-const featured = computed(() => visible.value.find((p) => p.featured))
-const rest = computed(() => visible.value.filter((p) => p !== featured.value))
+const featured = computed(() => projects.find((p) => p.featured))
+const rest = computed(() => projects.filter((p) => p !== featured.value))
 
 const { slug, open, close } = useHashRoute()
 const current = computed(() => projects.find((p) => p.slug === slug.value) || null)
@@ -34,24 +31,9 @@ function onClosed() {
 <template>
   <section id="projects" ref="root" class="section projects" aria-labelledby="projects-title" data-agent-section="projects">
     <div class="container">
-      <SectionHeading id="projects-title" eyebrow="Selected projects" title="Work that had to <em>scale</em>.">
-        Anonymised enterprise work. Company and customer names are withheld and confidential
-        screenshots are not published; architecture diagrams show how each system is built.
+      <SectionHeading id="projects-title" :eyebrow="`${projectsIntro.eyebrow} · ${String(projects.length).padStart(2, '0')}`" :title="projectsIntro.title">
+        {{ projectsIntro.lede }}
       </SectionHeading>
-
-      <div class="projects__filters reveal" role="group" aria-label="Filter projects by category" data-agent-element data-agent-handle="e" data-agent-name="Filters">
-        <button
-          v-for="c in projectCategories"
-          :key="c"
-          type="button"
-          class="projects__filter"
-          :class="{ 'is-active': filter === c }"
-          :aria-pressed="filter === c"
-          @click="filter = c"
-        >
-          {{ c }}
-        </button>
-      </div>
 
       <div class="projects__grid">
         <ProjectCard
@@ -71,7 +53,10 @@ function onClosed() {
           @open="openProject(p, $event)"
         />
       </div>
-      <p v-if="!visible.length" class="muted">No projects in this category yet.</p>
+      <p class="projects__note reveal">
+        <IconGlyph name="lock" />
+        <span>{{ projectsIntro.footnote }}</span>
+      </p>
     </div>
 
     <ProjectCaseStudy :project="current" @close="onClosed" />
@@ -79,28 +64,23 @@ function onClosed() {
 </template>
 
 <style scoped>
-.projects__filters {
+.projects__note {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: var(--s-6);
-}
-.projects__filter {
-  padding: 0.5rem 0.95rem;
-  border: 1px solid var(--line);
-  border-radius: var(--r-pill);
+  gap: 0.75rem;
+  align-items: flex-start;
+  max-width: 64ch;
+  margin-top: var(--s-6);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--line);
   font-size: var(--text-sm);
-  color: var(--ink-2);
-  transition: color var(--dur-fast), border-color var(--dur-fast), background-color var(--dur-fast);
+  color: var(--ink-3);
+  text-wrap: pretty;
 }
-.projects__filter:hover {
-  color: var(--ink);
-  border-color: var(--line-strong);
-}
-.projects__filter.is-active {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: var(--ink-3);
+.projects__note svg {
+  flex: none;
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-top: 0.25rem;
 }
 .projects__grid {
   display: grid;

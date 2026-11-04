@@ -78,5 +78,5 @@ export const CONFIG = {
   /** Elements that count as individual build layers inside a section. */
   layerSelector:
     'h1, h2, h3, h4, p, li, blockquote, img, picture, pre, canvas, dt, dd, label, input, textarea, ' +
-    '.btn, .tag, .eyebrow, .diagram, .projects__filter, .project__meta, .project__cta, .project__badge, .demo__opt',
+    '.btn, .tag, .eyebrow, .diagram, .project__meta, .project__cta, .project__badge',
 }

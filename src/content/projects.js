@@ -12,14 +12,14 @@
  * `visual` selects a genuine architecture diagram component (see
  * src/components/diagrams). These are diagrams, never fake screenshots.
  */
-export const projectCategories = [
-  'All',
-  'Enterprise Monitoring',
-  'Network Topology',
-  'Real-Time Data',
-  'Frontend Architecture',
-  'Design Systems',
-]
+export const projectsIntro = {
+  eyebrow: 'Selected work',
+  title: 'Work that had to <em>scale</em>.',
+  lede:
+    'Five systems from enterprise network software, each with the problem it solved, the hard part, and how the frontend was built to carry it.',
+  footnote:
+    'This is confidential product work. Company, customer and product names are withheld and interface screenshots are not published; the diagrams are the real architecture, redrawn.',
+}
 
 export const projects = [
   {
