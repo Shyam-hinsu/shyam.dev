@@ -70,7 +70,7 @@ export const CONFIG = {
   roamMaxAway: 2, // at most this many of ours visiting other windows at once
   roamStayMs: [3000, 7000],
   logLength: 6,
-  dustCount: 11000, // particles per window at 1440×900, scaled by area (desktop only)
+  dustCount: 16000, // particles per window at 1440×900, scaled by area (desktop only)
   sectionThreshold: 0.15,
   mobileBreakpoint: 768,
   storageKey: 'agents.prefs.v2',

@@ -1,7 +1,8 @@
 /**
- * Dust: a translucent sphere of thousands of particles that belongs to this
- * window. Particles sit on a shell, clustered along curved filaments, and the
- * shell slowly turns and breathes. When another window is linked and close
+ * Dust: a particle globe that belongs to this window. Particles are placed
+ * from a real land mask of the Earth (Natural Earth 1:110m), dense on the
+ * continents with a faint haze over the oceans, and the globe turns slowly
+ * on a 23.4° tilted polar axis. When another window is linked and close
  * enough, part of the dust flows through a tube to the other window and forms
  * a smaller sphere of this window's colour inside the other window's sphere,
  * as in Bjørn Staal's particle multi-window scene.
@@ -11,6 +12,7 @@
  * Positions are in screen coordinates. Plain 2D canvas, no dependencies.
  */
 import { clamp } from '../agents/easing.js'
+import { isLand } from './landMask.js'
 
 export const DUST_COLORS = [
   [227, 50, 63], // crimson: the site accent
@@ -69,55 +71,30 @@ export class DustField {
   seed(seed) {
     const rand = mulberry32(seed)
     const n = this.count
-    const filaments = 64
-    const perFilament = Math.floor((n * 0.78) / filaments)
     let i = 0
-    const p = [0, 0, 0]
-    const t = [0, 0, 0]
-    for (let f = 0; f < filaments; f++) {
-      // Start somewhere on the sphere with a random tangent, then random-walk
-      // along the surface; the walk is the filament.
-      randomDir(rand, p, 0)
-      randomDir(rand, t, 0)
-      const bright = 0.55 + rand() * 0.45
-      for (let k = 0; k < perFilament && i < n; k++, i++) {
-        // Keep the tangent on the surface and let it drift.
-        const dot = t[0] * p[0] + t[1] * p[1] + t[2] * p[2]
-        t[0] -= dot * p[0]
-        t[1] -= dot * p[1]
-        t[2] -= dot * p[2]
-        const tl = Math.hypot(t[0], t[1], t[2]) || 1
-        t[0] /= tl
-        t[1] /= tl
-        t[2] /= tl
-        p[0] += t[0] * 0.022
-        p[1] += t[1] * 0.022
-        p[2] += t[2] * 0.022
-        const pl = Math.hypot(p[0], p[1], p[2]) || 1
-        p[0] /= pl
-        p[1] /= pl
-        p[2] /= pl
-        t[0] += (rand() - 0.5) * 0.18
-        t[1] += (rand() - 0.5) * 0.18
-        t[2] += (rand() - 0.5) * 0.18
-        const j = 0.003 + rand() * 0.012
-        this.dir[i * 3] = p[0] + (rand() - 0.5) * j
-        this.dir[i * 3 + 1] = p[1] + (rand() - 0.5) * j
-        this.dir[i * 3 + 2] = p[2] + (rand() - 0.5) * j
-        this.bright[i] = bright
-        this.phase[i] = rand() * Math.PI * 2
-        this.hash[i] = rand()
-        this.side[i] = rand() * 2 - 1
-      }
-    }
-    // The rest: a diffuse haze over the whole shell.
-    for (; i < n; i++) {
-      randomDir(rand, this.dir, i * 3)
-      this.bright[i] = 0.2 + rand() * 0.25
+    let guard = 0
+    // Rejection-sample the sphere: land points are kept, ocean points mostly dropped.
+    while (i < n && guard++ < n * 12) {
+      const z = rand() * 2 - 1 // sin(lat), uniform on the sphere
+      const lon = rand() * 360 - 180
+      const lat = (Math.asin(z) * 180) / Math.PI
+      const land = isLand(lon, lat)
+      if (!land && rand() > 0.13) continue
+      const r = Math.sqrt(1 - z * z)
+      const a = (lon * Math.PI) / 180
+      // x: lon 0 towards the viewer at t=0, y: north up, z: east
+      this.dir[i * 3] = r * Math.cos(a)
+      this.dir[i * 3 + 1] = z
+      this.dir[i * 3 + 2] = r * Math.sin(a)
+      // Coast detection: a neighbour cell in the sea makes this a coastline point.
+      const coast = land && !(isLand(lon + 1.2, lat) && isLand(lon - 1.2, lat) && isLand(lon, lat + 1.2) && isLand(lon, lat - 1.2))
+      this.bright[i] = land ? (coast ? 0.95 : 0.55 + rand() * 0.25) : 0.16 + rand() * 0.1
       this.phase[i] = rand() * Math.PI * 2
       this.hash[i] = rand()
       this.side[i] = rand() * 2 - 1
+      i++
     }
+    this.count = i
   }
 }
 
@@ -191,7 +168,7 @@ export class DustRenderer {
     const n = f.count
     const cx = win.x + win.w / 2
     const cy = win.y + win.h / 2
-    const R = Math.min(win.w, win.h) * 0.22
+    const R = Math.min(win.w, win.h) * 0.26
     const [cr, cg, cb] = win.color
     const W = this.w
     const H = this.h
@@ -199,14 +176,15 @@ export class DustRenderer {
     const ox = view.x
     const oy = view.y
 
-    // Slow rotation about a tilted axis, seeded per window so spheres differ.
+    // One rotation every ~80 s about the polar axis, then the 23.4° axial tilt.
+    // Each window starts at a different longitude so two globes are not identical.
     const seedRot = (win.created % 1000) / 1000
-    const ay = t * 0.11 + seedRot * 6.28
-    const ax = 0.35 + Math.sin(t * 0.05 + seedRot) * 0.25
-    const cay = Math.cos(ay)
-    const say = Math.sin(ay)
-    const cax = Math.cos(ax)
-    const sax = Math.sin(ax)
+    const spin = t * 0.08 + seedRot * 6.28
+    const tilt = (23.4 * Math.PI) / 180
+    const cs = Math.cos(spin)
+    const sn = Math.sin(spin)
+    const ct = Math.cos(tilt)
+    const st = Math.sin(tilt)
 
     // Link: the nearest other window, and how strongly we flow into it.
     let peer = null
@@ -237,33 +215,20 @@ export class DustRenderer {
     const travelShare = 0.6 * link
 
     for (let i = 0; i < n; i++) {
-      // Base direction, rotated.
-      let x = f.dir[i * 3]
-      let y = f.dir[i * 3 + 1]
-      let z = f.dir[i * 3 + 2]
-      // rotate about x then y
-      let y1 = y * cax - z * sax
-      let z1 = y * sax + z * cax
-      let x2 = x * cay + z1 * say
-      let z2 = -x * say + z1 * cay
-      x = x2
-      y = y1
-      z = z2
-      // Surface flow: a smooth wobble that moves whole filaments together.
+      // Base direction (x towards viewer, y north, z east); spin about y, then tilt about z.
+      const bx0 = f.dir[i * 3]
+      const by0 = f.dir[i * 3 + 1]
+      const bz0 = f.dir[i * 3 + 2]
+      const x1 = bx0 * cs + bz0 * sn
+      const z1 = -bx0 * sn + bz0 * cs
+      const x = x1 * ct - by0 * st
+      const y = x1 * st + by0 * ct
+      const z = z1
       const ph = f.phase[i]
-      const wob = 0.05
-      x += Math.sin(y * 3.1 + t * 0.45) * wob + Math.sin(z * 5.3 - t * 0.3) * wob * 0.5
-      y += Math.sin(z * 2.7 + t * 0.4) * wob + Math.sin(x * 4.9 + t * 0.35) * wob * 0.5
-      z += Math.sin(x * 2.9 + t * 0.5) * wob + Math.sin(y * 4.4 - t * 0.25) * wob * 0.5
-      const len = Math.hypot(x, y, z) || 1
-      x /= len
-      y /= len
-      z /= len
-      // Breathing radius; the haze sits slightly inside and outside the shell.
-      const breathe = 1 + 0.02 * Math.sin(t * 0.7 + ph) + (f.bright[i] < 0.5 ? (f.hash[i] - 0.5) * 0.35 : 0)
-      let sx = cx + x * R * breathe
-      let sy = cy + y * R * breathe
-      let depth = z // -1 back … 1 front
+      // Screen: z is right, y is up, x is towards the viewer.
+      let sx = cx + z * R
+      let sy = cy - y * R
+      let depth = x // -1 back … 1 front
 
       // Travellers: flow into the peer sphere along a tube and nest there.
       if (peer && f.hash[i] < travelShare) {
@@ -273,8 +238,8 @@ export class DustRenderer {
         const w = 2 * Math.abs(cyc - Math.floor(cyc) - 0.5) // triangle wave 0→1→0
         const sPos = w * w * (3 - 2 * w)
         const nestR = peer.R * 0.42
-        const ex = peer.cx + x * nestR
-        const ey = peer.cy + y * nestR
+        const ex = peer.cx + z * nestR
+        const ey = peer.cy - y * nestR
         // Tube: lerp along the line with a lateral offset that pinches in the middle.
         const lx = sx + (ex - sx) * sPos
         const ly = sy + (ey - sy) * sPos
@@ -292,10 +257,13 @@ export class DustRenderer {
       const by = (sy - oy) * s
       if (bx < 0 || by < 0 || bx >= W || by >= H) continue
       const idx = ((by | 0) * W + (bx | 0)) * 4
-      const big = f.bright[i] > 0.5 && depth > 0.2 && bx < W - 1 && by < H - 1
+      const big = f.bright[i] > 0.9 && depth > 0.3 && bx < W - 1 && by < H - 1
       // Front particles brighter; filaments brighter still, tinted towards white.
-      const a = (0.3 + 0.7 * (depth + 1) * 0.5) * (0.3 + f.bright[i] * 0.9) * 0.95 * strength
-      const white = f.bright[i] * 0.5 * (depth + 1) * 0.5
+      const front = (depth + 1) * 0.5
+      // Rim light: particles near the limb (depth ≈ 0) get a lift so the edge always reads.
+      const rim = Math.max(0, 1 - Math.abs(depth) * 6) * 0.35
+      const a = (0.08 + 0.92 * front * front + rim) * (0.25 + f.bright[i] * 1.0) * 0.95 * strength
+      const white = f.bright[i] * 0.45 * front
       const rr = (cr + (255 - cr) * white) * a
       const gg = (cg + (255 - cg) * white) * a
       const bb = (cb + (255 - cb) * white) * a
