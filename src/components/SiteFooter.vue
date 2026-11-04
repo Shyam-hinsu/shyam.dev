@@ -12,7 +12,7 @@ const year = new Date().getFullYear()
         <span class="footer__mark display">{{ site.initials }}<i>.</i></span>
         <p class="footer__tag">{{ site.name }} · {{ site.title }}</p>
         <p class="footer__built muted">
-          Built with Vue 3 and Vite. No UI framework, self-hosted fonts, one Web Worker.
+          Built with Vue 3 and Vite. No UI framework, self-hosted fonts.
         </p>
       </div>
       <nav class="footer__nav" aria-label="Footer">

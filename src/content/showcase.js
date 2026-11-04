@@ -2,9 +2,8 @@
  * Engineering showcase — how problems actually get solved.
  * Each entry follows Problem → Investigation → Decision → Implementation → Result.
  *
- * Code excerpts are genuine: the topology example is the code running in the
- * live demo on this page. Nothing here reports invented benchmark numbers;
- * the demo measures its own frame times in your browser.
+ * Code excerpts are genuine patterns from this kind of work. Nothing here
+ * reports invented benchmark numbers.
  */
 export const showcase = [
   {
@@ -12,7 +11,6 @@ export const showcase = [
     kicker: '01',
     title: 'Topology at scale without freezing the UI',
     tags: ['Web Workers', 'Canvas', 'Typed arrays'],
-    hasDemo: true,
     steps: [
       {
         label: 'Problem',
@@ -32,7 +30,7 @@ export const showcase = [
       },
       {
         label: 'Result',
-        text: 'Interaction stays smooth while the layout converges. Toggle the demo below between worker and main-thread mode and watch the measured frame time in your own browser.',
+        text: 'Interaction stays smooth while the layout converges: panning, zooming and selection respond immediately, and the graph settles in the background.',
       },
     ],
     code: {
@@ -60,7 +58,6 @@ function tick() {
     kicker: '02',
     title: 'Vue 2 mixins to Vue 3 composables',
     tags: ['Vue 3', 'Composition API', 'Migration'],
-    hasDemo: false,
     steps: [
       {
         label: 'Problem',
@@ -127,7 +124,6 @@ export function usePolling(fetcher, { interval = 10_000 } = {}) {
     kicker: '03',
     title: 'Dozens of live charts on one screen',
     tags: ['Highcharts', 'Rendering', 'Scheduling'],
-    hasDemo: false,
     steps: [
       {
         label: 'Problem',

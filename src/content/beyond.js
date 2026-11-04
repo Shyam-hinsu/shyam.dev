@@ -8,11 +8,11 @@ export const beyond = {
     },
     {
       title: 'Visualization experiments',
-      text: 'Small canvas and SVG experiments like the live topology demo on this page. Building things outside a product keeps the fundamentals sharp.',
+      text: 'Small canvas and SVG experiments: force-directed layouts, custom chart renderers, animation engines. Building things outside a product keeps the fundamentals sharp.',
     },
     {
       title: 'This website',
-      text: 'Hand-built with Vue 3 and Vite, no UI framework, self-hosted fonts and a Web Worker demo. The source is on GitHub.',
+      text: 'Hand-built with Vue 3 and Vite, no UI framework, self-hosted fonts and a canvas animation engine. The source is on GitHub.',
     },
   ],
 }

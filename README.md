@@ -57,7 +57,6 @@ src/
   composables/     useReveal, useActiveSection, useHashRoute, useReducedMotion
   content/         all copy and configuration
   styles/          tokens.css (design tokens), base.css (reset + primitives), fonts.css
-  workers/         layout.worker.js + simulation.js (force-directed layout for the live demo)
 public/            fonts, images, favicon, robots.txt, sitemap.xml, manifest
 ```
 
@@ -125,5 +124,5 @@ never stays hidden.
 ## Accessibility and motion
 
 Semantic landmarks and headings, keyboard-reachable controls with visible focus, native `<dialog>` for case studies,
-`prefers-reduced-motion` honoured everywhere (the live demo settles instantly instead of animating), and no
+`prefers-reduced-motion` honoured everywhere, and no
 horizontal overflow at phone widths.

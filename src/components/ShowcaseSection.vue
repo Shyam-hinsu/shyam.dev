@@ -1,12 +1,9 @@
 <script setup>
-import { ref, defineAsyncComponent } from 'vue'
+import { ref } from 'vue'
 import { showcase } from '../content/showcase.js'
 import { useReveal } from '../composables/useReveal.js'
 import SectionHeading from './SectionHeading.vue'
 import CodeBlock from './CodeBlock.vue'
-
-// The live demo (canvas + worker) is split into its own chunk and only loaded when rendered.
-const TopologyDemo = defineAsyncComponent(() => import('./TopologyDemo.vue'))
 
 const root = ref(null)
 useReveal(root)
@@ -16,8 +13,8 @@ useReveal(root)
   <section id="showcase" ref="root" class="section showcase" aria-labelledby="showcase-title" data-agent-section="showcase">
     <div class="container">
       <SectionHeading id="showcase-title" eyebrow="Engineering showcase" title="How I actually <em>solve</em> problems.">
-        Three recurring problems from enterprise frontend work, each traced from symptom to shipped solution.
-        The code is real; the first example runs live on this page.
+        Three recurring problems from enterprise frontend work, each traced from symptom to shipped solution,
+        with the code pattern that solved it.
       </SectionHeading>
 
       <div class="showcase__list">
@@ -45,10 +42,6 @@ useReveal(root)
             </div>
           </div>
 
-          <div v-if="item.hasDemo" class="case__demo" data-agent-element data-agent-atomic data-agent-handle="se" data-agent-name="Live demo">
-            <p class="eyebrow">Live demo</p>
-            <TopologyDemo />
-          </div>
         </article>
       </div>
     </div>
@@ -142,10 +135,6 @@ useReveal(root)
   color: var(--ink-2);
   font-size: var(--text-sm);
   text-wrap: pretty;
-}
-.case__demo {
-  display: grid;
-  gap: var(--s-4);
 }
 @media (min-width: 64em) {
   .case__grid {
