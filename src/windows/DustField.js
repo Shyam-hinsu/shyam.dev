@@ -10,7 +10,7 @@
  */
 import { clamp, rand } from '../agents/easing.js'
 
-export const DUST_COLORS = ['227, 50, 63', '45, 212, 191', '96, 165, 250', '251, 191, 36', '192, 132, 252']
+export const DUST_COLORS = ['236, 52, 68', '52, 211, 153', '96, 165, 250', '251, 191, 36', '192, 132, 252']
 
 export class DustField {
   constructor({ count = 640, travellerShare = 0.5 } = {}) {

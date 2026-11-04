@@ -120,9 +120,13 @@ export class ScrollAnimationController {
     document.addEventListener('visibilitychange', this.onVisibility)
     document.fonts?.load?.(this.renderer.fontMono).catch(() => {})
 
-    if (!this.isMobile && !this.config.disableWorld) {
+    // The shared world needs a real screen and a mouse, not a wide viewport:
+    // the companion popup is narrower than a tablet and must still take part.
+    const desktop = window.matchMedia('(pointer: fine) and (hover: hover)').matches
+    if (desktop && !this.config.disableWorld) {
       this.world = new WindowManager()
-      this.dust = new DustField({ count: this.config.dustCount })
+      const area = Math.max(0.35, Math.min(1, (this.vw * this.vh) / (1440 * 900)))
+      this.dust = new DustField({ count: Math.round(this.config.dustCount * area) })
       window.addEventListener('pointermove', this.onPointer, { passive: true })
       document.addEventListener('pointerleave', this.onPointerLeave)
       this.world.onChange(() => (this.state.windows = this.world.others().length + 1))

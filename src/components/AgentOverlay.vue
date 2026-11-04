@@ -53,7 +53,7 @@ const latest = computed(() => {
   const e = state.log[0]
   return e && clock.value - e.t < 3200 ? e : null
 })
-const canOpenWindow = typeof window !== 'undefined' && window.matchMedia('(min-width: 48em) and (pointer: fine)').matches
+const canOpenWindow = typeof window !== 'undefined' && window.matchMedia('(pointer: fine) and (hover: hover)').matches
 const openWindow = () => controller?.openWindow()
 const fmtTime = (t) => new Date(t).toLocaleTimeString([], { minute: '2-digit', second: '2-digit' })
 
