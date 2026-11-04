@@ -44,7 +44,7 @@ a pre-filled email via `mailto:`.
 
 ### Images
 
-- Portrait: `public/images/portrait-*.{webp,jpg}` (responsive sizes) and `portrait-square-*.webp`.
+- Portrait: `public/images/portrait-*.{webp,jpg}` (responsive sizes), used once in the hero.
 - Open Graph image: `public/images/og.png` (1200×630).
 - Project screenshots: put files in `public/images/projects/<slug>/` and list them in the project's `screenshots`
   array. Until then, each case study shows a genuine architecture diagram and states that screenshots are withheld.
