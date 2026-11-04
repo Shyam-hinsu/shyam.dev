@@ -34,14 +34,13 @@ export class CursorAgent {
     this.trail = []
     this.ripples = []
     this.orbitPhase = index * 1.25
-    this.orbitAngle = rand(0, Math.PI * 2)
     this.completed = 0
-    this.cloud = { x: rand(-1, 1), y: rand(-1, 1) }
+    this.anchor = { x: 0, y: 0 }
   }
 
   place(x, y) {
-    this.x = x
-    this.y = y
+    this.x = this.anchor.x = x
+    this.y = this.anchor.y = y
   }
 
   get busy() {
@@ -86,44 +85,20 @@ export class CursorAgent {
     this.y = this.sy + (target.y - this.sy) * ep
   }
 
-  /** Idle: slow drift towards the swarm cloud plus a tiny orbit, like a resting hand. */
+  /**
+   * Idle: a slow, tiny circle around wherever the cursor last finished,
+   * like a resting hand on a mouse. Each cursor keeps its own spot, so they
+   * never pile up. If the anchor fell outside the viewport (resize), it is
+   * pulled back in.
+   */
   idle(now, dt, env) {
-    const c = this.config
-    const r = c.flockRadius * (env.isMobile ? 0.6 : 1)
-    const gx = env.swarmTarget.x + this.cloud.x * r
-    const gy = env.swarmTarget.y + this.cloud.y * r * 0.7
-    const k = 1 - Math.exp(-dt * 1.4)
-    this.x += (gx - this.x) * k
-    this.y += (gy - this.y) * k
-    this.orbitPhase += dt * 1.1
-    this.x += Math.cos(this.orbitPhase + this.index) * 21 * dt
-    this.y += Math.sin(this.orbitPhase + this.index) * 21 * dt
-    // Keep a polite distance from neighbours.
-    const sep = c.flockSeparation
-    for (const o of env.agents) {
-      if (o === this) continue
-      const dx = this.x - o.x
-      const dy = this.y - o.y
-      const d2 = dx * dx + dy * dy
-      if (d2 < sep * sep && d2 > 0.01) {
-        const d = Math.sqrt(d2)
-        const push = ((sep - d) / sep) * 60 * dt
-        this.x += (dx / d) * push
-        this.y += (dy / d) * push
-      }
-    }
-    this.x = clamp(this.x, 8, env.vw - 8)
-    this.y = clamp(this.y, 8, env.vh - 8)
-  }
-
-  /** Finale: circle the deploy card. */
-  orbit(now, dt, env) {
-    const o = env.orbit
-    this.orbitAngle += dt * (0.7 + (this.index % 5) * 0.08)
-    const rr = o.r + Math.sin(now / 420 + this.index) * 10 + (this.index % 3) * 12
-    const tx = o.x + Math.cos(this.orbitAngle) * rr
-    const ty = o.y + Math.sin(this.orbitAngle) * rr * 0.72
-    const k = 1 - Math.exp(-dt * 5)
+    const r = this.config.idleRadius
+    this.anchor.x = clamp(this.anchor.x, 24, env.vw - 24)
+    this.anchor.y = clamp(this.anchor.y, 24, env.vh - 24)
+    this.orbitPhase += dt * 1.08
+    const tx = this.anchor.x + Math.cos(this.orbitPhase + this.index) * r
+    const ty = this.anchor.y + Math.sin(this.orbitPhase + this.index) * r
+    const k = 1 - Math.exp(-dt * 4)
     this.x += (tx - this.x) * k
     this.y += (ty - this.y) * k
   }
@@ -141,8 +116,7 @@ export class CursorAgent {
       if (next) this.assign(next, now, env)
     }
     if (!this.task) {
-      if (env.mode === 'orbit') this.orbit(now, sdt, env)
-      else this.idle(now, sdt, env)
+      this.idle(now, sdt, env)
       this.pushTrail(now)
       return
     }
@@ -274,6 +248,8 @@ export class CursorAgent {
     this.task = null
     this.phase = 'idle'
     this.phaseStart = now
+    this.anchor.x = this.x
+    this.anchor.y = this.y
     queue.complete(task)
   }
 

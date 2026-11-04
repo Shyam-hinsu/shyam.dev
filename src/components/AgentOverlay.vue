@@ -24,7 +24,7 @@ function loadPrefs() {
 }
 function savePrefs() {
   try {
-    localStorage.setItem(CONFIG.storageKey, JSON.stringify({ enabled: state.enabled, trails: state.trails, speed: state.speed }))
+    localStorage.setItem(CONFIG.storageKey, JSON.stringify({ enabled: state.enabled, trails: state.trails }))
   } catch {
     /* storage unavailable */
   }
@@ -36,8 +36,6 @@ const state = reactive({
   paused: false,
   phase: 'idle',
   mode: 'auto',
-  tour: true,
-  speed: prefs.speed === 2 ? 2 : 1,
   trails: prefs.trails ?? true,
   agents: 0,
   built: 0,
@@ -48,6 +46,8 @@ const state = reactive({
 
 onMounted(() => {
   controller = new ScrollAnimationController({ canvas: canvas.value, root: document.getElementById('main'), state })
+  // ?agents-debug exposes the engine for automated checks.
+  if (new URLSearchParams(location.search).has('agents-debug')) window.__agentController = controller
   if (state.enabled) controller.init()
   else {
     state.phase = 'off'
@@ -59,7 +59,7 @@ onBeforeUnmount(() => {
   controller = null
 })
 
-watch(() => [state.enabled, state.trails, state.speed], savePrefs)
+watch(() => [state.enabled, state.trails], savePrefs)
 
 function enable() {
   if (!controller) return
@@ -73,11 +73,8 @@ const disable = () => controller?.setEnabled(false)
 const togglePause = () => (state.paused ? controller?.resume() : controller?.pause())
 const toggleTrails = () => controller?.setTrails(!state.trails)
 const toggleMode = () => controller?.setMode(state.mode === 'auto' ? 'all' : 'auto')
-const toggleTour = () => controller?.setTour(!state.tour)
-const toggleSpeed = () => controller?.setSpeed(state.speed === 1 ? 2 : 1)
 const replaySection = () => controller?.replaySection()
 const replayAll = () => controller?.replayAll()
-const goLive = () => controller?.goLive()
 const gather = () => controller?.gather()
 defineExpose({ gather })
 
@@ -87,7 +84,7 @@ const status = computed(() => {
   if (!state.enabled) return 'Agents off'
   if (state.paused) return 'Paused'
   if (state.phase === 'intro') return 'Scanning page…'
-  if (state.phase === 'done' || state.phase === 'finale') return `Rebuilt by ${state.agents} agents in ${seconds.value}s`
+  if (state.phase === 'done') return `Rebuilt by ${state.agents} agents in ${seconds.value}s`
   return `${state.agents} agents`
 })
 </script>
@@ -105,8 +102,7 @@ const status = computed(() => {
   <div class="dock" :class="{ 'dock--open': open }">
     <div id="agent-dock" class="dock__panel" :hidden="!open">
       <p class="dock__help">
-        Simulated UI agents wireframe and build this page while you scroll. Purely visual: no AI, no network.
-        Scrolling yourself stops the tour.
+        Five simulated UI agents wireframe and build each section as you scroll to it. Purely visual: no AI, no network.
       </p>
       <div class="dock__row" role="group" aria-label="Agent controls">
         <button v-if="state.enabled" type="button" class="dock__btn" @click="disable"><IconGlyph name="close" /> Turn off</button>
@@ -115,7 +111,7 @@ const status = computed(() => {
         <button type="button" class="dock__btn" :disabled="!state.enabled" :aria-pressed="state.mode === 'all'" @click="toggleMode">Inspect: {{ state.mode === 'all' ? 'ALL' : 'AUTO' }}</button>
         <button type="button" class="dock__btn" :disabled="!state.enabled" :aria-pressed="state.trails" @click="toggleTrails">Trails: {{ state.trails ? 'On' : 'Off' }}</button>
         <button type="button" class="dock__btn" :disabled="!state.enabled" @click="replaySection">Replay section</button>
-        <button type="button" class="dock__btn" :disabled="!state.enabled" @click="replayAll">Replay all</button>
+        <button type="button" class="dock__btn" :disabled="!state.enabled" @click="replayAll">Replay intro</button>
       </div>
       <ul class="dock__legend" aria-label="Lead agents">
         <li v-for="a in LEAD_AGENTS" :key="a.id"><i :style="{ background: a.color }" aria-hidden="true" />{{ a.name }}</li>
@@ -128,18 +124,13 @@ const status = computed(() => {
         <span class="dock__label mono">{{ status }}</span>
       </button>
       <template v-if="state.enabled">
-        <span v-if="state.phase !== 'done' && state.phase !== 'finale'" class="dock__layers mono">
+        <span class="dock__layers mono">
           <span class="dock__count">{{ state.built }} / {{ state.total }} layers</span>
           <span class="dock__bar-track" aria-hidden="true"><i :style="{ width: progress + '%' }" /></span>
         </span>
-        <template v-if="state.phase === 'done' || state.phase === 'finale'">
-          <button type="button" class="dock__chip dock__chip--primary" @click="goLive">Go live</button>
-          <button type="button" class="dock__chip" @click="replayAll">Replay</button>
-        </template>
-        <template v-else>
-          <button type="button" class="dock__chip" :class="{ 'is-on': state.tour }" :aria-pressed="state.tour" @click="toggleTour">Touring</button>
-          <button type="button" class="dock__chip" @click="toggleSpeed"><span class="sr-only">Speed </span>{{ state.speed }}×</button>
-        </template>
+        <button type="button" class="dock__chip" :class="{ 'is-on': state.mode === 'all' }" :aria-pressed="state.mode === 'all'" @click="toggleMode">Inspect: {{ state.mode === 'all' ? 'ALL' : 'AUTO' }}</button>
+        <button type="button" class="dock__chip dock__chip--section" @click="replaySection">Replay section</button>
+        <button type="button" class="dock__chip" @click="replayAll">{{ state.phase === 'done' ? 'Replay' : 'Replay intro' }}</button>
         <button type="button" class="dock__chip dock__chip--icon" aria-label="Turn agents off" @click="disable"><IconGlyph name="close" /></button>
       </template>
       <button v-else type="button" class="dock__chip" @click="enable">Turn on</button>
@@ -375,8 +366,9 @@ const status = computed(() => {
   height: 8px;
   border-radius: 50%;
 }
-@media (max-width: 40em) {
-  .dock__layers .dock__bar-track {
+@media (max-width: 48em) {
+  .dock__layers .dock__bar-track,
+  .dock__chip--section {
     display: none;
   }
   .dock__label {

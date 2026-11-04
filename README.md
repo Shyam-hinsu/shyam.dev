@@ -72,42 +72,44 @@ if you deploy under a different domain.
 
 ## Multi-cursor agent animation (`src/agents/`)
 
-A swarm of simulated cursors wireframes and builds the page while you scroll, in the spirit of a
-Figma file being assembled by a team. Five labelled lead agents (UI, DOM Layout, Graphics, Motion, State)
-are joined by unlabelled workers as sections trigger, up to 30. One shared `requestAnimationFrame` loop
-drives everything; the page is fully usable with the system off.
+Five simulated cursors (UI, DOM Layout, Graphics, Motion, State) wireframe and build each section as you
+scroll to it, in the spirit of a Figma file being assembled by a team. One shared `requestAnimationFrame`
+loop drives everything; nothing ever scrolls the page for you; the page is fully usable with the system off.
 
-Flow: intro splash ("Scanning page…", cursors flock in) → hero wireframe → each section's frames are
-dragged open and its layers tapped in → tour auto-scrolls to the next section (any wheel or touch scroll
-stops the tour) → finale: every agent gathers on the "Ship it to prod." card, and the dock offers
-**Go live** / **Replay**.
+Flow: intro splash ("Scanning page…", the five lock onto the monogram and click it) → hero frames are dragged
+open → each section you scroll to is wireframed and built → in the contact section the five gather on the
+"Ship it to prod." card and click it (clicking the card gathers them again).
 
 | Module | Responsibility |
 | --- | --- |
-| `AnimationConfig.js` | Lead agents, worker palette, swarm size, timings, physics, layer selector |
-| `CursorAgent.js` | One cursor: physics, task phases (approach → hover → press → drag/pop → release), flocking, orbit, trail, ripples |
-| `CursorRenderer.js` | DPR-aware canvas: wireframe skeletons, frames with eight handles, size pills, crosshairs, cursors, trails, ripples |
-| `DOMInspector.js` | Sections, frames (`data-agent-element`) and auto-discovered layers (headings, paragraphs, list items, tags, buttons, images…), cached rects, clip-path/opacity reveal |
-| `AnimationTaskQueue.js` | Pending tasks, nearest-agent claiming, completion tracking |
-| `ScrollAnimationController.js` | IntersectionObserver triggers, swarm growth, the single loop, tour, finale, controls, cleanup |
+| `AnimationConfig.js` | Cursor identities, timings, physics, reveal settings, `discoverLayers` |
+| `CursorAgent.js` | One cursor: eased glides, task phases (approach → hover → press → drag/pop → release), idle circling, trail, ripples |
+| `CursorRenderer.js` | DPR-aware canvas: wireframe frames with eight handles, size pills, drag guides, cursors, trails, ripples |
+| `DOMInspector.js` | Sections and frames (`data-agent-element`), cached un-scaled rects, scale-based reveal |
+| `AnimationTaskQueue.js` | Pending tasks, nearest-cursor claiming, completion tracking |
+| `ScrollAnimationController.js` | IntersectionObserver triggers, the single loop, interactions, finale, controls, cleanup |
 | `components/AgentOverlay.vue` | Canvas, splash and the control dock |
-| `components/DeployCard.vue` | Finale card: click to gather the agents |
+| `components/DeployCard.vue` | Finale card |
 
-Register a section and (optionally) frames:
+Register a section and its frames:
 
 ```html
 <section data-agent-section="projects">
-  <article data-agent-element data-agent-handle="se">…</article>          <!-- dragged open, then filled -->
-  <figure data-agent-element data-agent-atomic data-agent-handle="se">…</figure> <!-- one block, never descended -->
+  <article data-agent-element data-agent-handle="se">…</article>          <!-- dragged open -->
+  <figure data-agent-element data-agent-atomic data-agent-handle="se">…</figure> <!-- one block -->
 </section>
 ```
 
-Layers inside a section are discovered automatically (see `layerSelector` in the config). Frames reveal with
-`clip-path: inset()`, layers fade in: text, images and layout are never distorted. Finished wireframes fade out.
-Dock: Touring, speed 1×/2×, turn off, and an expanded panel with Pause/Resume, Inspect AUTO/ALL, Trails,
-Replay section and Replay all. Trails, speed and on/off persist in `localStorage`; Inspect mode never does.
-Off by default under `prefers-reduced-motion`, paused when the tab is hidden, and anything scrolled past is
-built instantly so content never stays hidden.
+Frames are revealed by scaling from the corner opposite the handle (transforms only, layout untouched) and
+their wireframe fades out when built. Set `discoverLayers: true` in the config to also wireframe every heading,
+paragraph, tag and button inside the frames. Controls can opt in to a simulated interaction with
+`data-agent-action="hover|click|pulse"` plus an optional `data-agent-after` delay; every simulated action
+dispatches an `agent:action` DOM event.
+
+Dock: layer counter, Inspect AUTO/ALL, Replay section, Replay intro, turn off, plus a panel with Pause/Resume
+and Trails. Trails and on/off persist in `localStorage`; Inspect mode never does. Off by default under
+`prefers-reduced-motion`, paused when the tab is hidden, and anything scrolled past is built instantly so content
+never stays hidden.
 
 ## Accessibility and motion
 

@@ -47,8 +47,6 @@ function onClosed() {
           class="projects__filter"
           :class="{ 'is-active': filter === c }"
           :aria-pressed="filter === c"
-          :data-agent-action="c === 'Network Topology' || c === 'All' ? 'click' : null"
-          :data-agent-after="c === 'All' ? 4200 : 1600"
           @click="filter = c"
         >
           {{ c }}

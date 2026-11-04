@@ -68,7 +68,7 @@ export class DOMInspector {
         if (!atomic) this.walk(el, sec, seen, el)
         continue
       }
-      if (el.matches(this.config.layerSelector) && !el.querySelector('[data-agent-element]')) {
+      if (this.config.discoverLayers && el.matches(this.config.layerSelector) && !el.querySelector('[data-agent-element]')) {
         seen.add(el)
         if (!this.items.has(el)) this.register(el, sec, el.matches('img, picture, canvas, .diagram, pre, blockquote') ? 'media' : 'layer')
         continue

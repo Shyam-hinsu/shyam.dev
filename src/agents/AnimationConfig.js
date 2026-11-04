@@ -17,10 +17,14 @@ export const LEAD_AGENTS = [
 export const WORKER_COLORS = ['#60a5fa', '#f472b6', '#34d399', '#fbbf24', '#c084fc', '#22d3ee', '#fb7185', '#a3e635', '#e2e8f0']
 
 export const CONFIG = {
-  // Swarm size
-  initialAgents: 10,
-  agentsPerSection: 3,
-  maxAgents: 30,
+  // Exactly five cursors, like the reference. Workers are opt-in.
+  initialAgents: 5,
+  agentsPerSection: 0,
+  maxAgents: 5,
+
+  // Build only the registered frames (data-agent-element). Set true to also
+  // wireframe every heading, paragraph, tag and button inside them.
+  discoverLayers: false,
 
   // Colours
   wireStroke: 'rgba(147, 197, 253, 0.95)',
@@ -39,8 +43,7 @@ export const CONFIG = {
   dragMs: [480, 820], // frames, images, atomic blocks
   popMs: 240, // leaf layers pop in
   interactStaggerMs: 450,
-  flockSeparation: 26,
-  flockRadius: 140,
+  idleRadius: 14, // px: idle cursors circle their last position
 
   // Trails and ripples
   trailLength: 12,
@@ -57,8 +60,6 @@ export const CONFIG = {
 
   // Choreography
   introMs: 1700,
-  tourPauseMs: 700,
-  finaleOrbitMs: 5000,
   sectionThreshold: 0.15,
   mobileBreakpoint: 768,
   storageKey: 'agents.prefs.v2',
