@@ -24,7 +24,7 @@ function loadPrefs() {
 }
 function savePrefs() {
   try {
-    localStorage.setItem(CONFIG.storageKey, JSON.stringify({ enabled: state.enabled, trails: state.trails }))
+    localStorage.setItem(CONFIG.storageKey, JSON.stringify({ enabled: state.enabled, trails: state.trails, dust: state.dust }))
   } catch {
     /* storage unavailable */
   }
@@ -37,6 +37,7 @@ const state = reactive({
   phase: 'idle',
   mode: 'auto',
   trails: prefs.trails ?? true,
+  dust: prefs.dust ?? true,
   agents: 0,
   built: 0,
   total: 0,
@@ -74,7 +75,7 @@ onBeforeUnmount(() => {
   controller = null
 })
 
-watch(() => [state.enabled, state.trails], savePrefs)
+watch(() => [state.enabled, state.trails, state.dust], savePrefs)
 
 function enable() {
   if (!controller) return
@@ -87,6 +88,7 @@ function enable() {
 const disable = () => controller?.setEnabled(false)
 const togglePause = () => (state.paused ? controller?.resume() : controller?.pause())
 const toggleTrails = () => controller?.setTrails(!state.trails)
+const toggleDust = () => (state.dust = !state.dust)
 const toggleMode = () => controller?.setMode(state.mode === 'auto' ? 'all' : 'auto')
 const replaySection = () => controller?.replaySection()
 const replayAll = () => controller?.replayAll()
@@ -125,6 +127,7 @@ const status = computed(() => {
         <button type="button" class="dock__btn" :disabled="!state.enabled" @click="togglePause">{{ state.paused ? 'Resume' : 'Pause' }}</button>
         <button type="button" class="dock__btn" :disabled="!state.enabled" :aria-pressed="state.mode === 'all'" @click="toggleMode">Inspect: {{ state.mode === 'all' ? 'ALL' : 'AUTO' }}</button>
         <button type="button" class="dock__btn" :disabled="!state.enabled" :aria-pressed="state.trails" @click="toggleTrails">Trails: {{ state.trails ? 'On' : 'Off' }}</button>
+        <button v-if="canOpenWindow" type="button" class="dock__btn" :disabled="!state.enabled" :aria-pressed="state.dust" @click="toggleDust">Dust: {{ state.dust ? 'On' : 'Off' }}</button>
         <button type="button" class="dock__btn" :disabled="!state.enabled" @click="replaySection">Replay section</button>
         <button type="button" class="dock__btn" :disabled="!state.enabled" @click="replayAll">Replay intro</button>
       </div>

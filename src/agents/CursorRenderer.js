@@ -175,7 +175,7 @@ export class CursorRenderer {
     ctx.save()
     for (const r of agent.ripples) {
       const p = (now - r.t0) / ms
-      if (p >= 1) continue
+      if (p >= 1 || p < 0) continue
       ctx.globalAlpha = (1 - p) * (r.strong ? 0.9 : 0.6)
       ctx.strokeStyle = r.strong ? this.config.dragColor : agent.color
       ctx.lineWidth = r.strong ? 1.6 : 1.1

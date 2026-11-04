@@ -79,11 +79,6 @@ export class WindowManager {
     this.send({ type: 'agents', agents })
   }
 
-  /** Broadcast this window's dust (Float32Array of x, y, size in screen coords). */
-  publishDust(buf) {
-    if (this.channel) this.channel.postMessage({ type: 'dust', id: this.id, created: this.created, t: Date.now(), buf })
-    // No localStorage fallback for dust: too chatty, and the effect is optional.
-  }
 
   send(msg) {
     const payload = { ...msg, id: this.id, created: this.created, t: Date.now() }
@@ -106,7 +101,7 @@ export class WindowManager {
     }
     let peer = this.peers.get(msg.id)
     if (!peer) {
-      peer = { id: msg.id, created: msg.created, x: 0, y: 0, w: 0, h: 0, t: 0, agents: [], dust: null }
+      peer = { id: msg.id, created: msg.created, x: 0, y: 0, w: 0, h: 0, t: 0, agents: [] }
       this.peers.set(msg.id, peer)
       // Introduce ourselves so the newcomer learns our shape at once.
       this.send({ type: 'shape', shape: { ...this.shape } })
@@ -114,10 +109,6 @@ export class WindowManager {
     peer.t = msg.t
     if (msg.type === 'shape') Object.assign(peer, msg.shape)
     if (msg.type === 'agents') peer.agents = msg.agents
-    if (msg.type === 'dust') {
-      peer.dust = msg.buf
-      return // high-frequency; no listeners needed
-    }
     this.emit()
   }
 

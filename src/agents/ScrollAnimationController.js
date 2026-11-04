@@ -5,7 +5,7 @@ import { DOMInspector } from './DOMInspector.js'
 import { AnimationTaskQueue } from './AnimationTaskQueue.js'
 import { rand } from './easing.js'
 import { WindowManager } from '../windows/WindowManager.js'
-import { DustField, dustColor } from '../windows/DustField.js'
+import { DustField, DustRenderer, dustColor, dustCountFor } from '../windows/DustField.js'
 
 /**
  * Orchestrates the whole show on one requestAnimationFrame loop:
@@ -45,15 +45,8 @@ export class ScrollAnimationController {
     this.introUntil = 0
     this.gathered = false
     this.world = null // WindowManager, desktop only
-    this.dust = null // DustField: this window's motes
-    this.pointer = null // last mouse position (viewport coords), desktop only
-    this.lastDustPublish = 0
-    this.onPointer = (e) => {
-      this.pointer = { x: e.clientX, y: e.clientY }
-    }
-    this.onPointerLeave = () => {
-      this.pointer = null
-    }
+    this.dustRenderer = null // DustRenderer, desktop only
+    this.fields = new Map() // window id -> DustField (ours and every peer's, computed locally)
     this.lastRoamCheck = 0
     this.lastPublish = 0
 
@@ -125,10 +118,7 @@ export class ScrollAnimationController {
     const desktop = window.matchMedia('(pointer: fine) and (hover: hover)').matches
     if (desktop && !this.config.disableWorld) {
       this.world = new WindowManager()
-      const area = Math.max(0.35, Math.min(1, (this.vw * this.vh) / (1440 * 900)))
-      this.dust = new DustField({ count: Math.round(this.config.dustCount * area) })
-      window.addEventListener('pointermove', this.onPointer, { passive: true })
-      document.addEventListener('pointerleave', this.onPointerLeave)
+      this.dustRenderer = new DustRenderer()
       this.world.onChange(() => (this.state.windows = this.world.others().length + 1))
       this.world.start()
       this.state.windows = 1
@@ -190,8 +180,6 @@ export class ScrollAnimationController {
     this.stopLoop()
     this.world?.stop()
     this.world = null
-    window.removeEventListener('pointermove', this.onPointer)
-    document.removeEventListener('pointerleave', this.onPointerLeave)
     this.clearTimers()
     clearTimeout(this.rescanTimer)
     this.observer?.disconnect()
@@ -558,15 +546,6 @@ export class ScrollAnimationController {
     })
     w.publishAgents(agents)
 
-    if (this.dust) {
-      const ptr = this.pointer ? w.toScreen(this.pointer.x, this.pointer.y) : null
-      this.dust.update(this.lastDt, w.shape, peers, ptr, now)
-      if (now - this.lastDustPublish > 33) {
-        this.lastDustPublish = now
-        if (peers.length) w.publishDust(this.dust.snapshot())
-      }
-    }
-
     // Idle cursors sometimes wander over to another window.
     if (!peers.length || now - this.lastRoamCheck < this.config.roamIdleMs) return
     this.lastRoamCheck = now
@@ -587,12 +566,20 @@ export class ScrollAnimationController {
     if (!w) return
     const r = this.renderer
     const peers = w.others()
-    // Dust: ours and every linked window's, each in its own colour, where it really is on the screen.
-    if (this.dust) {
-      const order = [{ id: w.id, created: w.created }, ...peers].sort((a, b) => a.created - b.created)
-      const colorOf = (id) => dustColor(order.findIndex((o) => o.id === id))
-      DustField.draw(r.ctx, this.dust.snapshot(), w.shape, colorOf(w.id), this.vw, this.vh, peers.length ? 0.9 : 0.7)
-      for (const p of peers) if (p.dust) DustField.draw(r.ctx, p.dust, w.shape, colorOf(p.id), this.vw, this.vh, 0.9)
+    // Dust: every window's sphere, computed here from its shape and seed, drawn where it is on the screen.
+    if (this.dustRenderer && this.state.dust !== false) {
+      const all = [{ id: w.id, created: w.created, ...w.shape }, ...peers].sort((a, b) => a.created - b.created)
+      const windows = all.map((win, i) => {
+        const count = dustCountFor(win.w, win.h, this.config.dustCount)
+        let field = this.fields.get(win.id)
+        if (!field || field.count !== count) {
+          field = new DustField(win.created >>> 0, count)
+          this.fields.set(win.id, field)
+        }
+        return { ...win, field, color: dustColor(i) }
+      })
+      for (const id of this.fields.keys()) if (!all.some((a) => a.id === id)) this.fields.delete(id)
+      this.dustRenderer.render(r.ctx, w.shape, windows, this.vw, this.vh, this.isMobile ? 0.8 : 1)
     }
     if (!peers.length) return
     for (const p of peers) {

@@ -114,10 +114,12 @@ window".
 `src/windows/WindowManager.js` shares each window's screen position and cursor positions over BroadcastChannel
 (localStorage fallback). Every window renders the others' cursors at their true place on the monitor and draws a
 link to each linked window; idle cursors occasionally wander into a neighbouring window and come back. Every desktop window also carries a
-sparse field of dust (`src/windows/DustField.js`): a few hundred 1px motes held in a soft halo around the window's
-centre that give way to the mouse. When two or more windows are linked, part of each window's dust streams across
-the gap to the other window's halo and back, a restrained take on Bjørn Staal's particle
-[multi-window scene](https://github.com/bgstaal/multipleWindow3dScene). Open a second
+sphere of dust (`src/windows/DustField.js`): thousands of particles clustered along curved filaments on a slowly
+turning shell, rendered through an additive pixel buffer with a cheap two-level bloom. Each window's sphere is a pure
+function of its creation time and a shared clock, so every window computes every window's sphere locally; only window
+shapes are broadcast. When two windows are close, part of each sphere flows through a pinched tube into the other
+window and nests as a smaller sphere inside it, after Bjørn Staal's particle
+[multi-window scene](https://github.com/bgstaal/multipleWindow3dScene). A "Dust" toggle lives in the dock panel. Open a second
 window from the dock and drag it beside the first. Desktop only, same origin only, nothing leaves the browser. Trails and on/off persist in `localStorage`; Inspect mode never does. Off by default under
 `prefers-reduced-motion`, paused when the tab is hidden, and anything scrolled past is built instantly so content
 never stays hidden.
