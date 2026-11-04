@@ -60,6 +60,8 @@ export const CONFIG = {
 
   // Choreography
   introMs: 1700,
+  inspectCooldownMs: 6000, // a built section is re-inspected at most this often
+  inspectHoldMs: [520, 900],
   sectionThreshold: 0.15,
   mobileBreakpoint: 768,
   storageKey: 'agents.prefs.v2',

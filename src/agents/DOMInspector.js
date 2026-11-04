@@ -216,6 +216,16 @@ export class DOMInspector {
     this.dirty = false
   }
 
+  /** Fresh measurement of one element (outside the frame loop). */
+  measureItem(item) {
+    const b = item.el.getBoundingClientRect()
+    const sc = item.scale || 1
+    const w = b.width / sc
+    const h = b.height / sc
+    item.rect = { x: b.left - item.origin[0] * (w - b.width), y: b.top - item.origin[1] * (h - b.height), w, h }
+    return item.rect
+  }
+
   /** The box the element currently occupies on screen (base rect × scale). */
   visualRect(item) {
     const r = item.rect

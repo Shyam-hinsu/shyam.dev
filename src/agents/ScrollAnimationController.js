@@ -71,7 +71,9 @@ export class ScrollAnimationController {
           const sec = this.inspector.sections.get(e.target.dataset.agentSection)
           if (!sec) continue
           sec.visible = e.isIntersecting
-          if (e.isIntersecting && sec.status === 'idle' && this.state.phase !== 'intro') this.triggerSection(sec)
+          if (!e.isIntersecting || this.state.phase === 'intro') continue
+          if (sec.status === 'idle') this.triggerSection(sec)
+          else if (sec.status === 'done') this.inspectSection(sec)
         }
       },
       { threshold: this.config.sectionThreshold },
@@ -82,7 +84,11 @@ export class ScrollAnimationController {
     this.finaleObserver = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (e.isIntersecting && !this.gathered && this.state.phase !== 'intro') this.later(() => this.gather(), 400)
+          if (!e.isIntersecting) {
+            this.gathered = false
+            continue
+          }
+          if (!this.gathered && this.state.phase !== 'intro') this.later(() => this.gather(), 400)
         }
       },
       { threshold: 0.7 },
@@ -252,6 +258,29 @@ export class ScrollAnimationController {
     }
   }
 
+  /**
+   * A built section came back into view: the cursors fly over and inspect
+   * its frames (selection box, size pill), then rest there. Mirrors how the
+   * reference re-runs its slider and skill-bar routines on every entry.
+   */
+  inspectSection(sec) {
+    const now = performance.now()
+    if (now - (sec.lastInspect || 0) < this.config.inspectCooldownMs) return
+    sec.lastInspect = now
+    const frames = sec.items.filter((it) => it.kind !== 'layer' && it.status === 'built' && it.el.isConnected)
+    for (const it of frames) this.inspector.measureItem(it)
+    const visible = frames.filter((it) => this.inspector.isInViewport(it.rect, -24))
+    if (!visible.length) return
+    // Spread the cursors over the section: pick evenly spaced frames.
+    const n = Math.min(this.agents.length, visible.length)
+    const step = visible.length / n
+    for (let i = 0; i < n; i++) {
+      const item = visible[Math.floor(i * step)]
+      this.queue.enqueue({ kind: 'inspect', item, sectionId: sec.id })
+    }
+    this.scheduleInteractions(sec)
+  }
+
   /** After a section is built, agents try its real controls ([data-agent-action]). */
   scheduleInteractions(sec) {
     const controls = [...sec.el.querySelectorAll('[data-agent-action]')]
@@ -268,9 +297,15 @@ export class ScrollAnimationController {
    * Finale, as in the reference: every cursor moves to its own spot on the
    * deploy card, the first one clicks it, and they rest there afterwards.
    */
-  gather() {
+  gather(attempt = 0) {
     const el = this.inspector.finaleEl
     if (!el || !this.state.enabled) return
+    // Wait until the card itself has been built; its corners mean nothing while it is collapsed.
+    const item = this.inspector.items.get(el)
+    if (item && item.status !== 'built') {
+      if (attempt < 40) this.later(() => this.gather(attempt + 1), 250)
+      return
+    }
     this.gathered = true
     const spots = [[0.5, 0.5], [0.18, 0.25], [0.85, 0.25], [0.22, 0.82], [0.88, 0.82]]
     this.agents.forEach((a, i) => {
@@ -430,11 +465,12 @@ export class ScrollAnimationController {
           continue
         }
         if (!building) {
+          if (item.hovered) item.alpha = 1
           if (item.alpha > 0) {
-            item.alpha = Math.max(0, item.alpha - fadeStep)
+            if (!item.hovered) item.alpha = Math.max(0, item.alpha - fadeStep)
             if (item.alpha > 0) {
               if (item.kind === 'layer') r.drawLayerSkeleton(item.rect, { alpha: item.alpha * 0.6 })
-              else r.drawFrame(item.rect, { alpha: item.alpha, fill: false })
+              else r.drawFrame(item.rect, { alpha: item.alpha, hovered: item.hovered, fill: item.hovered })
             }
           }
           continue
@@ -462,6 +498,11 @@ export class ScrollAnimationController {
       for (const t of this.queue.pending) {
         if (!t.item) {
           keep.push(t)
+          continue
+        }
+        if (t.kind === 'inspect') {
+          if (t.item.section.visible !== false) keep.push(t)
+          else this.queue.active.delete(t)
           continue
         }
         const sec = t.item.section

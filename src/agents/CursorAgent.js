@@ -57,6 +57,7 @@ export class CursorAgent {
     this.hoverMs = rand(this.config.hoverMs[0], this.config.hoverMs[1])
     this.dragMs = rand(this.config.dragMs[0], this.config.dragMs[1])
     this.holdMs = task.holdMs || 600
+    if (task.kind === 'inspect') this.holdMs = rand(this.config.inspectHoldMs[0], this.config.inspectHoldMs[1])
     if (task.kind === 'build') {
       task.item.status = 'queued'
       task.item.queuedAt = now
@@ -70,8 +71,11 @@ export class CursorAgent {
     const task = this.task
     if (!task) return null
     if (task.kind === 'interact') {
-      const r = task.rect
-      if (!r) return null
+      // Live target, like the reference's getPoint(): the page may scroll or the
+      // element may still be animating. One rect read per active interaction.
+      const b = task.el.getBoundingClientRect()
+      const r = { x: b.left, y: b.top, w: b.width, h: b.height }
+      task.rect = r
       const [ox, oy] = task.offset || [0.5, 0.5]
       return { x: r.x + r.w * ox, y: r.y + r.h * oy }
     }
@@ -125,10 +129,12 @@ export class CursorAgent {
     const item = task.item
     const elapsed = (now - this.phaseStart) * sp
 
-    if (task.kind === 'build' && (!item.el.isConnected || !item.rect)) return this.finish(now, queue, task, true)
+    if (item && (!item.el.isConnected || !item.rect)) return this.finish(now, queue, task, true)
     if (task.kind === 'interact' && !task.el.isConnected) return this.finish(now, queue, task, true)
     const target = this.targetPoint(env)
     if (!target) return this.finish(now, queue, task, true)
+    // The visitor scrolled it well out of view: let it go instead of flying off-screen.
+    if (target.y < -env.vh || target.y > env.vh * 2) return this.finish(now, queue, task, true)
 
     switch (this.phase) {
       case 'approach': {
@@ -138,7 +144,7 @@ export class CursorAgent {
           this.phaseStart = now
           this.hovering = true
           if (item) {
-            item.status = 'hover'
+            if (task.kind === 'build') item.status = 'hover'
             item.hovered = true
           }
           if (task.kind === 'interact' && task.action === 'hover') task.el.classList.add('is-agent-hover')
@@ -148,6 +154,16 @@ export class CursorAgent {
       case 'hover': {
         this.x = target.x
         this.y = target.y
+        if (task.kind === 'inspect') {
+          // Just look: show the selection box for a moment, then let go.
+          if (elapsed >= this.holdMs) {
+            item.hovered = false
+            this.hovering = false
+            this.phase = 'release'
+            this.phaseStart = now
+          }
+          break
+        }
         if (elapsed >= this.hoverMs) {
           this.phase = 'press'
           this.phaseStart = now
@@ -242,6 +258,7 @@ export class CursorAgent {
 
   finish(now, queue, task, aborted) {
     if (task.kind === 'interact') this.endAction(task)
+    if (task.kind === 'inspect' && task.item) task.item.hovered = false
     if (!aborted) this.completed++
     this.pressed = false
     this.hovering = false
