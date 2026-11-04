@@ -587,8 +587,8 @@ export class ScrollAnimationController {
     if (this.dust) {
       const order = [{ id: w.id, created: w.created }, ...peers].sort((a, b) => a.created - b.created)
       const colorOf = (id) => dustColor(order.findIndex((o) => o.id === id))
-      DustField.draw(r.ctx, this.dust.snapshot(), w.shape, colorOf(w.id), this.vw, this.vh, peers.length ? 0.6 : 0.38)
-      for (const p of peers) if (p.dust) DustField.draw(r.ctx, p.dust, w.shape, colorOf(p.id), this.vw, this.vh, 0.6)
+      DustField.draw(r.ctx, this.dust.snapshot(), w.shape, colorOf(w.id), this.vw, this.vh, peers.length ? 0.9 : 0.7)
+      for (const p of peers) if (p.dust) DustField.draw(r.ctx, p.dust, w.shape, colorOf(p.id), this.vw, this.vh, 0.9)
     }
     if (!peers.length) return
     for (const p of peers) {

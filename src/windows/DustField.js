@@ -13,7 +13,7 @@ import { clamp, rand } from '../agents/easing.js'
 export const DUST_COLORS = ['227, 50, 63', '45, 212, 191', '96, 165, 250', '251, 191, 36', '192, 132, 252']
 
 export class DustField {
-  constructor({ count = 640, travellerShare = 0.4 } = {}) {
+  constructor({ count = 640, travellerShare = 0.5 } = {}) {
     this.count = count
     this.travellers = Math.round(count * travellerShare)
     this.x = new Float32Array(count)
@@ -36,7 +36,7 @@ export class DustField {
       this.vx[i] = -Math.sin(a) * 12
       this.vy[i] = Math.cos(a) * 12
       this.phase[i] = rand(0, Math.PI * 2)
-      this.size[i] = rand(0, 1) < 0.15 ? 1.8 : 1.1
+      this.size[i] = rand(0, 1) < 0.12 ? 2.4 : rand(1.3, 1.8)
       this.peerIndex[i] = i % 4
     }
     this.seeded = true
@@ -50,7 +50,7 @@ export class DustField {
    */
   update(dt, self, peers, pointer, now) {
     const core = { x: self.x + self.w / 2, y: self.y + self.h / 2 }
-    const radius = Math.min(self.w, self.h) * 0.24
+    const radius = Math.min(self.w, self.h) * 0.3
     if (!this.seeded) this.seed(core, radius)
     const t = now / 1000
     const linked = peers.length > 0
@@ -78,7 +78,7 @@ export class DustField {
         const k = 520
         ax += (dx / d) * k
         ay += (dy / d) * k
-        const w = Math.sin(t * 2.2 + this.phase[i] * 3) * 90
+        const w = Math.sin(t * 2.2 + this.phase[i] * 3) * 140
         ax += (-dy / d) * w
         ay += (dx / d) * w
       } else {
@@ -138,19 +138,51 @@ export class DustField {
   }
 
   /** Draw a set of motes given in screen coords, offset into this window's viewport. */
-  static draw(ctx, buf, offset, rgb, vw, vh, alpha = 0.55) {
+  static draw(ctx, buf, offset, rgb, vw, vh, alpha = 0.9) {
     ctx.save()
     ctx.globalCompositeOperation = 'lighter'
+    // Small motes: crisp squares. Larger ones: a cached glow sprite (cheap, unlike shadowBlur).
     ctx.fillStyle = `rgba(${rgb}, ${alpha})`
     for (let i = 0; i < buf.length; i += 3) {
+      const s = buf[i + 2]
+      if (s > 2) continue
       const x = buf[i] - offset.x
       const y = buf[i + 1] - offset.y
-      if (x < -2 || y < -2 || x > vw + 2 || y > vh + 2) continue
-      const s = buf[i + 2]
+      if (x < -3 || y < -3 || x > vw + 3 || y > vh + 3) continue
       ctx.fillRect(x, y, s, s)
+    }
+    const sprite = glowSprite(rgb)
+    const half = sprite.width / 2
+    ctx.globalAlpha = Math.min(1, alpha + 0.1)
+    for (let i = 0; i < buf.length; i += 3) {
+      if (buf[i + 2] <= 2) continue
+      const x = buf[i] - offset.x
+      const y = buf[i + 1] - offset.y
+      if (x < -half || y < -half || x > vw + half || y > vh + half) continue
+      ctx.drawImage(sprite, x - half, y - half)
     }
     ctx.restore()
   }
+}
+
+const sprites = new Map()
+
+/** A small radial-gradient dot, rendered once per colour. */
+function glowSprite(rgb) {
+  let c = sprites.get(rgb)
+  if (c) return c
+  const size = 12
+  c = document.createElement('canvas')
+  c.width = c.height = size
+  const g = c.getContext('2d')
+  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  grad.addColorStop(0, `rgba(${rgb}, 1)`)
+  grad.addColorStop(0.35, `rgba(${rgb}, 0.55)`)
+  grad.addColorStop(1, `rgba(${rgb}, 0)`)
+  g.fillStyle = grad
+  g.fillRect(0, 0, size, size)
+  sprites.set(rgb, c)
+  return c
 }
 
 export function dustColor(index) {
