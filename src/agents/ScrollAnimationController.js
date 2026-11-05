@@ -279,7 +279,6 @@ export class ScrollAnimationController {
     if (sec.id !== 'hero') this.growSwarm()
     // Frames and media first, then the layers inside them, in DOM order.
     const ordered = [...todo.filter((it) => it.kind !== 'layer'), ...todo.filter((it) => it.kind === 'layer')]
-    let remaining = ordered.length
     for (const item of ordered) {
       item.status = 'queued'
       item.queuedAt = performance.now()
@@ -288,9 +287,8 @@ export class ScrollAnimationController {
         item,
         sectionId: sec.id,
         onDone: (agent) => {
-          remaining--
           if (agent) this.log(agent, item.kind === 'layer' ? 'placed' : 'resized', item)
-          if (remaining <= 0) this.sectionDone(sec)
+          if (sec.items.every((it) => it.status === 'built')) this.sectionDone(sec)
         },
       })
     }
@@ -644,7 +642,7 @@ export class ScrollAnimationController {
         continue
       }
       for (const item of sec.items) {
-        if (item.status !== 'built' && item.status !== 'collapsed' && item.queuedAt && now - item.queuedAt > this.config.staleTaskMs) insp.build(item, now)
+        if ((item.status === 'dragging' || item.status === 'popping') && item.queuedAt && now - item.queuedAt > this.config.staleTaskMs) insp.build(item, now)
       }
       if (sec.status === 'running' && sec.items.every((it) => it.status === 'built')) this.sectionDone(sec)
     }

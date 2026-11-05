@@ -144,7 +144,7 @@ export class CursorAgent {
     if (this.ripples.length) this.ripples = this.ripples.filter((r) => now - r.t0 < c.rippleMs)
 
     if (!this.task) {
-      const next = queue.claim(this, inspector)
+      const next = queue.claim(this, inspector, env.vh)
       if (next) {
         this.roam = null
         this.assign(next, now, env)
@@ -161,12 +161,13 @@ export class CursorAgent {
     const item = task.item
     const elapsed = (now - this.phaseStart) * sp
 
-    if (item && (!item.el.isConnected || !item.rect)) return this.finish(now, queue, task, true)
+    if (item && !item.el.isConnected) return this.finish(now, queue, task, true)
+    if (item && !item.rect) return this.finish(now, queue, task, true, inspector)
     if (task.kind === 'interact' && !task.el.isConnected) return this.finish(now, queue, task, true)
     const target = this.targetPoint(env)
-    if (!target) return this.finish(now, queue, task, true)
-    // The visitor scrolled it well out of view: let it go instead of flying off-screen.
-    if (target.y < -env.vh || target.y > env.vh * 2) return this.finish(now, queue, task, true)
+    if (!target) return this.finish(now, queue, task, true, inspector)
+    // The visitor scrolled it well out of view: hand it back to the queue instead of flying off-screen.
+    if (target.y < -env.vh || target.y > env.vh * 2) return this.finish(now, queue, task, true, inspector)
 
     switch (this.phase) {
       case 'approach': {
@@ -288,9 +289,35 @@ export class CursorAgent {
     task.el.classList.remove('is-hit', 'is-agent-hover')
   }
 
-  finish(now, queue, task, aborted) {
+  /**
+   * End a task. An aborted build task is handed back to the queue (with its
+   * element reset to the collapsed state) when `inspector` is given, so the
+   * work is never lost; without it the task is dropped, which the controller
+   * uses when it cancels a whole section.
+   */
+  finish(now, queue, task, aborted, inspector = null) {
     if (task.kind === 'interact') this.endAction(task)
     if (task.kind === 'inspect' && task.item) task.item.hovered = false
+    const requeue = aborted && inspector && (task.kind === 'build' || task.kind === 'inspect') && task.item?.el.isConnected
+    if (requeue) {
+      const item = task.item
+      item.hovered = false
+      if (task.kind === 'build') {
+        item.status = 'collapsed'
+        item.progress = item.p0
+        inspector.applyReveal(item)
+      }
+      this.pressed = false
+      this.hovering = false
+      this.task = null
+      this.phase = 'idle'
+      this.phaseStart = now
+      this.idleSince = now
+      this.anchor.x = this.x
+      this.anchor.y = this.y
+      queue.release(task)
+      return
+    }
     if (!aborted) this.completed++
     this.pressed = false
     this.hovering = false
